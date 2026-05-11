@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão de Equipe — Trivia</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     LOGIN / SOLICITAÇÃO
+════════════════════════════════════════════════════════ -->
+<div id="login-screen" class="login-screen">
+
+  <!-- painel login -->
+  <div id="painel-login" class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">⚙</div>
+      <h1>Gestão de Equipe</h1>
+      <p>Trivia Tecnologia</p>
+    </div>
+    <form onsubmit="doLogin(event)">
+      <div class="field"><label>E-mail corporativo</label>
+        <input type="email" id="login-email" placeholder="seu.nome@trivia.com.br" required></div>
+      <div class="field"><label>Senha</label>
+        <input type="password" id="login-password" placeholder="••••••••" required></div>
+      <div id="login-error" class="login-error"></div>
+      <button type="submit" class="btn-login" id="btn-login">Entrar</button>
+    </form>
+    <p class="login-hint">Acesso restrito a <strong>@triviatrens.com.br</strong></p>
+    <p style="text-align:center;margin-top:12px">
+      <a href="#" class="link-solicitar" onclick="showSolicitar()">Não tem acesso? Solicitar cadastro</a>
+    </p>
+  </div>
+
+  <!-- painel solicitar cadastro -->
+  <div id="painel-solicitar" class="login-box" style="display:none;width:520px">
+    <div class="login-logo">
+      <div class="login-logo-icon" style="font-size:30px">📋</div>
+      <h1>Solicitar Cadastro</h1>
+      <p>Preencha os dados abaixo — um administrador irá aprovar.</p>
+    </div>
+    <form onsubmit="doSolicitarCadastro(event)">
+      <div class="form-grid-2">
+        <div class="field full"><label>Nome completo *</label>
+          <input id="sol-nome" required placeholder="Seu nome completo"></div>
+        <div class="field full"><label>E-mail corporativo *</label>
+          <input type="email" id="sol-email" required placeholder="nome@triviatrens.com.br"></div>
+        <div class="field"><label>Senha *</label>
+          <input type="password" id="sol-senha" required placeholder="Mínimo 6 caracteres"></div>
+        <div class="field"><label>Confirmar Senha *</label>
+          <input type="password" id="sol-senha2" required placeholder="Repita a senha"></div>
+        <div class="field"><label>Base *</label>
+          <select id="sol-base" required>
+            <option value="">Selecione...</option>
+            <option value="Base 1" id="sol-b1-opt">BAS</option>
+            <option value="Base 2" id="sol-b2-opt">JBO</option>
+            <option value="Base 3" id="sol-b3-opt">CVN</option>
+            <option value="Base 4" id="sol-b4-opt">SMP</option>
+          </select></div>
+        <div class="field"><label>Escala *</label>
+          <select id="sol-escala" required>
+            <option value="">Selecione...</option>
+            <option>A</option><option>B</option><option>C</option><option>D</option>
+            <option>SD</option><option>SN</option>
+          </select></div>
+        <div class="field"><label>Turno *</label>
+          <select id="sol-turno" required>
+            <option value="">Selecione...</option>
+            <option>Diurno</option><option>Noturno</option>
+          </select></div>
+        <div class="field"><label>Data de Admissão *</label>
+          <input type="date" id="sol-admissao" required></div>
+      </div>
+      <div id="sol-error" class="login-error" style="margin-top:8px"></div>
+      <button type="submit" class="btn-login" id="btn-solicitar">Enviar Solicitação</button>
+    </form>
+    <p style="text-align:center;margin-top:12px">
+      <a href="#" class="link-solicitar" onclick="showLogin()">← Voltar ao login</a>
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     APP
+════════════════════════════════════════════════════════ -->
+<div id="app-screen" class="app-screen" style="display:none">
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+      <span class="topbar-title">Gestão de Equipe</span>
+      <span class="topbar-version">v1.0</span>
+    </div>
+    <div class="topbar-right">
+      <span id="topbar-user" class="topbar-user"></span>
+      <button class="btn-logout" onclick="doLogout()">Sair</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidebar" id="sidebar">
+      <ul>
+        <li class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')"><span class="ni">▣</span> Dashboard</li>
+        <li class="nav-item nav-admin" data-page="cadastro"  onclick="navigate('cadastro')" style="display:none"><span class="ni">◈</span> Técnicos</li>
+        <li class="nav-item" data-page="ferias"    onclick="navigate('ferias')"><span class="ni">◷</span> Férias</li>
+        <li class="nav-item" data-page="avaliacao" onclick="navigate('avaliacao')"><span class="ni">◆</span> Avaliação</li>
+        <li class="nav-item nav-admin" data-page="registros" onclick="navigate('registros')" style="display:none">
+          <span class="ni">📋</span> Solicitações <span id="badge-reg" class="badge-nav" style="display:none"></span>
+        </li>
+        <li class="nav-item nav-admin" data-page="usuarios"  onclick="navigate('usuarios')" style="display:none"><span class="ni">◉</span> Usuários</li>
+        <li class="nav-item nav-admin" data-page="config"    onclick="navigate('config')" style="display:none"><span class="ni">⚙</span> Configurações</li>
+      </ul>
+    </nav>
+
+    <main class="content">
+
+      <!-- DASHBOARD -->
+      <section id="page-dashboard" class="page active">
+        <div class="welcome-card">
+          <div class="welcome-left">
+            <div class="welcome-label">CENTRO OPERACIONAL</div>
+            <h2 id="welcome-nome">Bem-vindo</h2>
+            <p class="welcome-sub">Gerencie técnicos, férias e avaliações em um só lugar.</p>
+          </div>
+          <div class="welcome-actions">
+            <button id="btn-wc-tec" class="btn-action btn-orange nav-admin" style="display:none" onclick="navigate('cadastro');App.cadastro.openModal()">+ Técnico</button>
+            <button class="btn-action btn-ghost" onclick="abrirCalendario()">📅 Solicitar Férias</button>
+            <button class="btn-action btn-red"   onclick="navigate('avaliacao');App.avaliacao.openModal()">◆ Avaliação</button>
+          </div>
+        </div>
+        <div class="stats-grid" id="stats-grid"></div>
+        <div class="dashboard-grid">
+          <div class="dark-card span2"><div class="dark-card-title" id="dash-bases-title">Disponibilidade por Base</div><div id="dash-bases"></div></div>
+          <div class="dark-card"><div class="dark-card-title" id="dash-alertas-title">Alertas</div><div id="dash-alertas"></div></div>
+        </div>
+        <!-- 14-day strip — admin only -->
+        <div class="dark-card nav-admin" id="dash-strip-wrap" style="display:none;margin-top:14px">
+          <div class="dark-card-title">📅 Próximos 14 Dias — Férias Agendadas</div>
+          <div id="dash-strip" style="overflow-x:auto;padding:6px 0 2px"></div>
+        </div>
+        <div class="dark-card" style="margin-top:14px"><div class="dark-card-title" id="dash-avaliacoes-title">Última Avaliação por Base</div><div id="dash-avaliacoes"></div></div>
+      </section>
+
+      <!-- TÉCNICOS -->
+      <section id="page-cadastro" class="page">
+        <div class="page-hdr">
+          <h2>Técnicos</h2>
+          <button class="btn-action btn-orange" onclick="App.cadastro.openModal()">+ Novo Técnico</button>
+        </div>
+        <div class="dark-card">
+          <input type="text" id="busca-tec" class="dark-input" placeholder="Buscar..." oninput="App.cadastro.render(this.value)">
+          <table class="dark-table">
+            <thead><tr><th>#</th><th>Nome</th><th>Base</th><th>Escala</th><th>Turno</th><th>Admissão</th><th>Fim Aquisitivo</th><th>Vínculo</th><th>Ação</th></tr></thead>
+            <tbody id="tbody-tec"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- FÉRIAS -->
+      <section id="page-ferias" class="page">
+        <div class="page-hdr">
+          <h2>Controle de Férias</h2>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <!-- Toggle visível apenas para admin -->
+            <div class="view-toggle nav-admin" id="ferias-view-toggle" style="display:none">
+              <button id="btn-view-table" class="btn-toggle active" onclick="App.ferias.setView('table')">📋 Tabela</button>
+              <button id="btn-view-cal" class="btn-toggle" onclick="App.ferias.setView('calendar')">📅 Calendário</button>
+            </div>
+            <button class="btn-action btn-orange" onclick="abrirCalendario()">+ Registrar Férias</button>
+          </div>
+        </div>
+        <div class="filter-row" id="ferias-filter-row">
+          <select class="dark-select" id="f-base" onchange="App.ferias.render()">
+            <option value="">Todas as bases</option>
+            <option value="Base 1" id="f-b1-opt">BAS</option><option value="Base 2" id="f-b2-opt">JBO</option>
+            <option value="Base 3" id="f-b3-opt">CVN</option><option value="Base 4" id="f-b4-opt">SMP</option>
+          </select>
+          <select class="dark-select" id="f-status" onchange="App.ferias.render()">
+            <option value="">Todos os status</option>
+            <option value="pendente">Pendente</option><option value="aprovado">Aprovado</option><option value="rejeitado">Rejeitado</option>
+          </select>
+        </div>
+        <!-- Tabela (padrão) -->
+        <div id="ferias-table-wrap">
+          <div class="dark-card">
+            <table class="dark-table">
+              <thead><tr><th>Técnico</th><th>Base</th><th>Início P1</th><th>Fim P1</th><th>Início P2</th><th>Fim P2</th><th>Dias</th><th>Status</th><th>Ação</th></tr></thead>
+              <tbody id="tbody-fer"></tbody>
+            </table>
+          </div>
+        </div>
+        <!-- Calendário de equipe (supervisor) -->
+        <div id="ferias-cal-view" class="dark-card" style="display:none;padding:16px 20px"></div>
+      </section>
+
+      <!-- AVALIAÇÃO -->
+      <section id="page-avaliacao" class="page">
+        <div class="page-hdr">
+          <h2>Avaliação de Desempenho</h2>
+          <button class="btn-action btn-orange" onclick="App.avaliacao.openModal()">+ Nova Avaliação</button>
+        </div>
+        <div class="filter-row">
+          <select class="dark-select" id="av-base" onchange="App.avaliacao.render()">
+            <option value="">Todas as bases</option>
+            <option value="Base 1" id="av-b1-opt">BAS</option><option value="Base 2" id="av-b2-opt">JBO</option>
+            <option value="Base 3" id="av-b3-opt">CVN</option><option value="Base 4" id="av-b4-opt">SMP</option>
+          </select>
+          <select class="dark-select" id="av-periodo" onchange="App.avaliacao.render()"><option value="">Todos os períodos</option></select>
+        </div>
+        <div class="dark-card">
+          <table class="dark-table">
+            <thead><tr><th>Técnico</th><th>Base</th><th>Período</th><th>Nota Base</th><th>Fator Org.</th><th>Nota Final</th><th>Conceito</th><th>Tipo</th><th>Ação</th></tr></thead>
+            <tbody id="tbody-av"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SOLICITAÇÕES (admin) -->
+      <section id="page-registros" class="page">
+        <div class="page-hdr"><h2>Solicitações de Cadastro</h2></div>
+        <div class="dark-card">
+          <table class="dark-table">
+            <thead><tr><th>Nome</th><th>E-mail</th><th>Base</th><th>Escala</th><th>Turno</th><th>Admissão</th><th>Status</th><th>Ação</th></tr></thead>
+            <tbody id="tbody-reg"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- USUÁRIOS (admin) -->
+      <section id="page-usuarios" class="page">
+        <div class="page-hdr">
+          <h2>Usuários do Sistema</h2>
+          <button class="btn-action btn-orange" onclick="App.usuarios.openModal()">+ Novo Usuário</button>
+        </div>
+        <div class="dark-card">
+          <table class="dark-table">
+            <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Cadastrado em</th><th>Ação</th></tr></thead>
+            <tbody id="tbody-usr"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- CONFIG (admin) -->
+      <section id="page-config" class="page">
+        <div class="page-hdr"><h2>Configurações — Nomes das Bases</h2></div>
+        <div class="dark-card" style="max-width:500px">
+          <p style="color:var(--text-md);font-size:13px;margin-bottom:16px">
+            Defina os nomes reais de cada base. Eles serão exibidos em todo o sistema.
+          </p>
+          <form onsubmit="App.config.salvar(event)">
+            <div class="form-grid">
+              <div class="field"><label>Base 1</label><input id="cfg-b1" placeholder="Nome da Base 1"></div>
+              <div class="field"><label>Base 2</label><input id="cfg-b2" placeholder="Nome da Base 2"></div>
+              <div class="field"><label>Base 3</label><input id="cfg-b3" placeholder="Nome da Base 3"></div>
+              <div class="field"><label>Base 4</label><input id="cfg-b4" placeholder="Nome da Base 4"></div>
+            </div>
+            <div style="padding:0 24px 20px;display:flex;gap:10px">
+              <button type="submit" class="btn-action btn-orange">Salvar Nomes</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     CALENDÁRIO DE FÉRIAS (overlay fullscreen)
+════════════════════════════════════════════════════════ -->
+<div id="overlay-cal" class="overlay-cal" style="display:none">
+  <div class="cal-panel">
+    <div class="cal-header">
+      <div>
+        <h2 class="cal-title">Calendário de Férias</h2>
+        <p id="cal-subtitle" class="cal-subtitle"></p>
+      </div>
+      <button class="cal-close" onclick="fecharCalendario()">✕</button>
+    </div>
+
+    <div class="cal-legenda">
+      <span class="leg-item"><span class="leg-box work"></span> Trabalho</span>
+      <span class="leg-item"><span class="leg-box off"></span> Folga</span>
+      <span class="leg-item"><span class="leg-dot dot-proprio"></span> Suas férias aprovadas</span>
+      <span class="leg-item"><span class="leg-dot dot-par"></span> Colega de base aprovado</span>
+      <span class="leg-item"><span class="leg-box sel"></span> Selecionado</span>
+    </div>
+
+    <div class="cal-selecao-info">
+      <div class="sel-info-item">
+        <span>P1:</span>
+        <strong id="cal-p1-display">Clique em um dia para iniciar</strong>
+        <button id="cal-p1-clear" onclick="calLimparP1()" style="display:none" class="btn-clear-cal">✕</button>
+      </div>
+      <div class="sel-info-item">
+        <span>P2:</span>
+        <strong id="cal-p2-display">—</strong>
+        <button id="cal-p2-clear" onclick="calLimparP2()" style="display:none" class="btn-clear-cal">✕</button>
+      </div>
+      <button class="btn-action btn-orange" id="btn-cal-confirmar" onclick="calConfirmar()" style="display:none">
+        Confirmar Período →
+      </button>
+    </div>
+
+    <div class="cal-tecnico-select" id="cal-tec-select-row" style="display:none">
+      <label style="color:var(--text-md);font-size:12px">Ver calendário de:</label>
+      <select class="dark-select" id="cal-tec-sel" onchange="calMudarTecnico()"></select>
+    </div>
+
+    <div id="cal-grid" class="cal-grid"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     MODAIS
+════════════════════════════════════════════════════════ -->
+
+<!-- Modal Técnico -->
+<div id="m-tec" class="modal"><div class="modal-box">
+  <div class="modal-hdr"><h3 id="m-tec-title">Novo Técnico</h3><button onclick="closeModal('m-tec')">&times;</button></div>
+  <form onsubmit="App.cadastro.save(event)">
+    <input type="hidden" id="tec-id">
+    <div class="form-grid">
+      <div class="field full"><label>Nome *</label><input id="tec-nome" required></div>
+      <div class="field"><label>Base *</label>
+        <select id="tec-base" required>
+          <option value="">...</option>
+          <option value="Base 1" id="m-b1">BAS</option><option value="Base 2" id="m-b2">JBO</option>
+          <option value="Base 3" id="m-b3">CVN</option><option value="Base 4" id="m-b4">SMP</option>
+        </select></div>
+      <div class="field"><label>Escala *</label>
+        <select id="tec-escala" required><option value="">...</option><option>A</option><option>B</option><option>C</option><option>D</option><option>SD</option><option>SN</option></select></div>
+      <div class="field"><label>Turno *</label>
+        <select id="tec-turno" required><option value="">...</option><option>Diurno</option><option>Noturno</option></select></div>
+      <div class="field"><label>Admissão *</label><input type="date" id="tec-admissao" required onchange="calcAquis()"></div>
+      <div class="field"><label>Início Aquisitivo</label><input type="date" id="tec-ini-aq"></div>
+      <div class="field"><label>Fim Aquisitivo</label><input type="date" id="tec-fim-aq"></div>
+
+      <!-- Vínculo com usuário -->
+      <div class="field full" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+        <label style="font-size:12px;font-weight:700;color:var(--orange);letter-spacing:.4px">🔗 VÍNCULO COM USUÁRIO DO SISTEMA</label>
+        <div id="tec-vinculo-status" class="vinculo-status" style="margin:8px 0"></div>
+        <label style="font-size:11px;margin-bottom:4px;display:block;color:var(--text-md)">E-mail de acesso *</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="email" id="tec-email" placeholder="email@triviatrens.com.br" style="flex:1">
+          <button type="button" class="btn-ghost-sm" onclick="App.cadastro.selecionarUsuario()" title="Selecionar de usuário existente">
+            👤 Buscar usuário
+          </button>
+        </div>
+        <p style="font-size:11px;color:var(--text-dim);margin-top:6px">
+          O e-mail deve corresponder ao login do técnico no sistema para que ele acesse suas férias e avaliações.
+        </p>
+      </div>
+    </div>
+
+    <!-- Painel de seleção de usuário (expansível) -->
+    <div id="tec-usr-picker" style="display:none;padding:0 24px 16px;border-top:1px solid var(--border)">
+      <p style="font-size:12px;color:var(--text-md);margin:12px 0 8px">Selecione um usuário existente para vincular:</p>
+      <select id="tec-usr-sel" class="dark-select" style="width:100%;margin-bottom:8px" onchange="App.cadastro.confirmarUsuario()">
+        <option value="">— escolha um usuário —</option>
+      </select>
+    </div>
+
+    <div class="modal-ftr"><button type="button" class="btn-ghost-sm" onclick="closeModal('m-tec')">Cancelar</button><button type="submit" class="btn-orange">Salvar</button></div>
+  </form>
+</div></div>
+
+<!-- Modal Férias (formulário, pré-preenchido pelo calendário) -->
+<div id="m-fer" class="modal"><div class="modal-box">
+  <div class="modal-hdr"><h3 id="m-fer-title">Registrar Férias</h3><button onclick="closeModal('m-fer')">&times;</button></div>
+  <form onsubmit="App.ferias.save(event)">
+    <input type="hidden" id="fer-id">
+    <div class="form-grid">
+
+      <!-- Técnico -->
+      <div class="field full"><label>Técnico *</label>
+        <select id="fer-tec" required><option value="">Selecione...</option></select>
+      </div>
+
+      <!-- Período 1 -->
+      <div class="fer-periodo-label full">📅 Período 1</div>
+      <div class="field"><label>Data de Início *</label>
+        <input type="date" id="fer-ini1" required onchange="atualizarSecaoFerias()"></div>
+      <div class="field"><label>Data de Fim *</label>
+        <input type="date" id="fer-fim1" required onchange="atualizarSecaoFerias()"></div>
+
+      <!-- Info P1 -->
+      <div class="field full" id="fer-info-p1" style="display:none">
+        <div class="fer-dias-box">
+          <span class="fer-dias-num" id="fer-dias-p1-val">0</span>
+          <span class="fer-dias-lbl">dias no Período 1</span>
+          <span class="fer-dias-hint" id="fer-dias-p1-hint"></span>
+        </div>
+      </div>
+
+      <!-- Abono Pecuniário (apenas quando P1 = 20 dias) -->
+      <div class="field full" id="sec-abono" style="display:none">
+        <label class="fb-liberar-row" style="cursor:pointer">
+          <input type="checkbox" id="fer-abono" onchange="atualizarSecaoFerias()">
+          <span>
+            <strong style="color:var(--orange)">Abono Pecuniário</strong> —
+            converter <strong>10 dias</strong> em pagamento em dinheiro
+            <span style="color:var(--text-dim);font-size:12px">(total: 30 dias contabilizados)</span>
+          </span>
+        </label>
+      </div>
+
+      <!-- Período 2 (apenas quando P1 < 20 dias) -->
+      <div id="sec-p2" style="display:none" class="full">
+        <div class="fer-periodo-label">📅 Período 2 <span style="font-size:11px;color:var(--text-dim)">(opcional)</span></div>
+        <div class="form-grid" style="margin-top:8px">
+          <div class="field"><label>Data de Início P2</label>
+            <input type="date" id="fer-ini2" onchange="atualizarSecaoFerias()"></div>
+          <div class="field"><label>Data de Fim P2</label>
+            <input type="date" id="fer-fim2" onchange="atualizarSecaoFerias()"></div>
+        </div>
+      </div>
+
+      <!-- Total Geral -->
+      <div class="field full" id="fer-info-total" style="display:none">
+        <div class="fer-total-box">
+          Total: <strong id="fer-dias-total">—</strong> dias
+          <span id="fer-total-hint" class="fer-dias-hint"></span>
+        </div>
+      </div>
+
+      <!-- Status (apenas admin vê) -->
+      <div class="field full" id="fer-status-row">
+        <label>Status *</label>
+        <select id="fer-status" required>
+          <option value="pendente">Pendente</option>
+          <option value="aprovado">Aprovado</option>
+          <option value="rejeitado">Rejeitado</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-ftr">
+      <button type="button" class="btn-ghost-sm" onclick="closeModal('m-fer')">Cancelar</button>
+      <button type="submit" class="btn-orange">Salvar Solicitação</button>
+    </div>
+  </form>
+</div></div>
+
+<!-- Modal Avaliação -->
+<div id="m-av" class="modal"><div class="modal-box modal-xl">
+  <div class="modal-hdr"><h3 id="m-av-title">Nova Avaliação</h3><button onclick="closeModal('m-av')">&times;</button></div>
+  <form onsubmit="App.avaliacao.save(event)">
+    <input type="hidden" id="av-id">
+    <div class="form-grid" style="padding-bottom:0">
+      <div class="field"><label>Técnico *</label><select id="av-tec" required><option value="">...</option></select></div>
+      <div class="field"><label>Período *</label><select id="av-per" required><option value="">...</option></select></div>
+    </div>
+    <div class="av-section">
+      <div class="av-cat-label cat-blue">Técnico-Operacional</div>
+      <div class="crit-grid">
+        <div class="crit"><label>Conhecimento Técnico <span class="peso">(20%)</span></label><p>Domínio das ferramentas, sistemas e procedimentos.</p><div class="stars" data-f="conhecimentoTecnico"></div></div>
+        <div class="crit"><label>Segurança Operacional <span class="peso">(20%)</span></label><p>Cumprimento das normas de segurança e EPIs.</p><div class="stars" data-f="segurancaOperacional"></div></div>
+        <div class="crit"><label>Iniciativa em Atuação <span class="peso">(15%)</span></label><p>Decisões em situações críticas ou novas.</p><div class="stars" data-f="iniciativaAtuacao"></div></div>
+      </div>
+    </div>
+    <div class="av-section">
+      <div class="av-cat-label cat-purple">Comportamental</div>
+      <div class="crit-grid">
+        <div class="crit"><label>Disponibilidade <span class="peso">(15%)</span></label><p>Prontidão e flexibilidade para atender chamados.</p><div class="stars" data-f="disponibilidade"></div></div>
+        <div class="crit"><label>Trabalho em Equipe <span class="peso">(12%)</span></label><p>Colaboração e clima organizacional.</p><div class="stars" data-f="trabalhoEquipe"></div></div>
+        <div class="crit"><label>Comunicação <span class="peso">(10%)</span></label><p>Clareza e assertividade nas informações.</p><div class="stars" data-f="comunicacao"></div></div>
+        <div class="crit"><label>Proatividade <span class="peso">(8%)</span></label><p>Antecipação a problemas sem supervisão.</p><div class="stars" data-f="proatividade"></div></div>
+      </div>
+    </div>
+    <div class="av-section av-org">
+      <div class="av-cat-label cat-orange">Fator Organizacional <span class="mult-badge">Multiplicador 0,80× – 1,20×</span></div>
+      <div class="crit-grid">
+        <div class="crit crit-org"><label>Foco nos Resultados</label><p>Cumprimento de metas e qualidade do serviço.</p><div class="stars" data-f="focoResultados"></div></div>
+        <div class="crit crit-org"><label>Postura Ética Embaixador</label><p>Representação positiva e conduta íntegra.</p><div class="stars" data-f="posturaEtica"></div></div>
+        <div class="crit crit-org"><label>Alinhamento Valores</label><p>Valores da organização no dia a dia.</p><div class="stars" data-f="alinhamentoValores"></div></div>
+      </div>
+    </div>
+    <div class="av-preview">
+      <div class="prev-item"><span>Nota Base</span><strong id="p-base">—</strong></div>
+      <div class="prev-sep">×</div>
+      <div class="prev-item"><span>Fator Org.</span><strong id="p-mult">—</strong></div>
+      <div class="prev-sep">=</div>
+      <div class="prev-item prev-final"><span>Nota Final</span><strong id="p-final">—</strong></div>
+      <div class="prev-item"><span>Conceito</span><strong id="p-conc">—</strong></div>
+    </div>
+    <div class="modal-ftr"><button type="button" class="btn-ghost-sm" onclick="closeModal('m-av')">Cancelar</button><button type="submit" class="btn-orange">Salvar Avaliação</button></div>
+  </form>
+</div></div>
+
+<!-- Modal Usuário -->
+<div id="m-usr" class="modal"><div class="modal-box">
+  <div class="modal-hdr"><h3 id="m-usr-title">Novo Usuário</h3><button onclick="closeModal('m-usr')">&times;</button></div>
+  <form onsubmit="App.usuarios.save(event)">
+    <input type="hidden" id="usr-id">
+    <div class="form-grid">
+      <div class="field full"><label>Nome *</label><input id="usr-nome" required></div>
+      <div class="field full"><label>E-mail * (@triviatrens.com.br)</label><input type="email" id="usr-email" required placeholder="nome@triviatrens.com.br"></div>
+      <div class="field"><label>Senha</label><input type="password" id="usr-senha" placeholder="Em branco = manter"></div>
+      <div class="field"><label>Perfil</label><select id="usr-role"><option value="user">Usuário</option><option value="admin">Administrador</option></select></div>
+    </div>
+    <div class="modal-ftr"><button type="button" class="btn-ghost-sm" onclick="closeModal('m-usr')">Cancelar</button><button type="submit" class="btn-orange">Salvar</button></div>
+  </form>
+</div></div>
+
+<!-- Modal Feedback / Liberar -->
+<div id="m-feedback" class="modal"><div class="modal-box">
+  <div class="modal-hdr">
+    <h3 id="m-fb-title">Feedback da Avaliação</h3>
+    <button onclick="closeModal('m-feedback')">&times;</button>
+  </div>
+  <form onsubmit="App.avaliacao.saveFeedback(event)">
+    <input type="hidden" id="fb-av-id">
+    <div style="padding:18px 24px 0;display:flex;flex-direction:column;gap:14px">
+
+      <!-- Resumo da avaliação -->
+      <div id="fb-resumo" class="fb-resumo"></div>
+
+      <div class="field full">
+        <label>Texto do Feedback *</label>
+        <textarea id="fb-texto" rows="5" class="dark-input" placeholder="Descreva os pontos fortes, pontos de melhoria e orientações para o técnico…" style="resize:vertical" required></textarea>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="field">
+          <label>Nota Final do Feedback</label>
+          <div class="stars" data-f="fb_nota" style="margin-top:4px"></div>
+        </div>
+        <div class="field">
+          <label>Data do Feedback</label>
+          <input type="date" id="fb-data">
+        </div>
+      </div>
+
+      <label class="fb-liberar-row">
+        <input type="checkbox" id="fb-liberar" checked>
+        <span>Liberar avaliação para o técnico após salvar o feedback</span>
+      </label>
+    </div>
+
+    <div class="modal-ftr" style="justify-content:space-between">
+      <button type="button" class="btn-action btn-ghost" onclick="App.avaliacao.gerarPDF(+document.getElementById('fb-av-id').value)">
+        🖨 Gerar PDF
+      </button>
+      <div style="display:flex;gap:10px">
+        <button type="button" class="btn-ghost-sm" onclick="closeModal('m-feedback')">Cancelar</button>
+        <button type="submit" class="btn-orange">Salvar Feedback</button>
+      </div>
+    </div>
+  </form>
+</div></div>
+
+<!-- Template de impressão (PDF) — oculto na tela normal -->
+<div id="pdf-print" class="pdf-print">
+  <div class="pdf-header">
+    <div class="pdf-logo">⚙ Trivia Trens</div>
+    <div class="pdf-title">Avaliação de Desempenho</div>
+  </div>
+  <div id="pdf-content"></div>
+</div>
+
+<div id="toast" class="toast"></div>
+<script src="/app.js"></script>
+</body>
+</html>

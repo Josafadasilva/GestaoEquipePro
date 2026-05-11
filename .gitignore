@@ -1,0 +1,21 @@
+# Dependências
+node_modules/
+
+# Banco de dados (contém senhas e e-mails reais — nunca suba isso em repo público)
+gestao.json
+
+# Variáveis de ambiente
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/settings.json
+.idea/
