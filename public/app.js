@@ -5,7 +5,6 @@
 let TOKEN = lerLS('ge_token');
 let ME    = JSON.parse(lerLS('ge_user') || 'null');
 let BASES = { 'Base 1': 'BAS', 'Base 2': 'JBO', 'Base 3': 'CVN', 'Base 4': 'SMP' };
-const PAR = { 'Base 1': 'Base 2', 'Base 2': 'Base 1', 'Base 3': 'Base 4', 'Base 4': 'Base 3' };
 const ESCALAS = ['A', 'B', 'C', 'D', 'SD', 'SN'];
 const TURNOS  = ['Diurno', 'Noturno'];
 const DOMINIO = 'triviatrens.com.br';
@@ -33,15 +32,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 function hoje() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()); }
-function addDias(iso, n) { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
-function diffDias(a, b) { return (a && b) ? Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 86400000) + 1 : 0; }
-function diasAte(iso) { return diffDias(hoje(), iso) - 1; }
 function fmt(iso) { if (!iso) return '—'; const [y, m, d] = iso.slice(0, 10).split('-'); return `${d}/${m}/${y}`; }
-function fmtCurto(iso) { if (!iso) return '—'; const [, m, d] = iso.split('-'); return `${d}/${m}`; }
-const DSEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
-const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-function dsem(iso) { return DSEM[new Date(iso + 'T12:00:00Z').getUTCDay()]; }
-function fimAquisitivo(adm) { const d = new Date(adm + 'T12:00:00Z'); d.setUTCFullYear(d.getUTCFullYear() + 1); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); }
 function iniciais(n) { return String(n || '?').split(' ').filter(Boolean).filter((w, i, a) => i === 0 || i === a.length - 1).map(w => w[0].toUpperCase()).join('').slice(0, 2); }
 function primeiroNome(n) { return String(n || '').split(' ')[0]; }
 function plural(n, s, p) { return `${n} ${n === 1 ? s : p}`; }
@@ -103,7 +94,6 @@ function regua(n) {
 const IC = {
   inicio:  '<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
   aval:    '<path d="m12 3 2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>',
-  ferias:  '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   equipe:  '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2A5 5 0 0 1 21 19"/>',
   mais:    '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
   conta:   '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>',
@@ -280,7 +270,6 @@ function sair(msg) {
 const ROTAS_ADMIN = [
   { id: 'inicio', t: 'Início', ic: 'inicio' },
   { id: 'avaliacao', t: 'Avaliação', ic: 'aval' },
-  { id: 'ferias', t: 'Férias', ic: 'ferias' },
   { id: 'equipe', t: 'Equipe', ic: 'equipe' },
   { id: 'mais', t: 'Mais', ic: 'mais', soCelular: true },
   { sep: 'Administração' },
@@ -292,7 +281,6 @@ const ROTAS_ADMIN = [
 ];
 const ROTAS_TEC = [
   { id: 'inicio', t: 'Início', ic: 'inicio' },
-  { id: 'ferias', t: 'Férias', ic: 'ferias' },
   { id: 'avaliacao', t: 'Avaliação', ic: 'aval' },
   { id: 'conta', t: 'Conta', ic: 'conta' },
 ];
@@ -368,43 +356,43 @@ async function inicioAdmin(c) {
   const ciclo = cicloAvaliacao(tecs, avs, per);
   const semAval = ciclo.filter(x => x.status === 'avaliar').length;
   const semFb = ciclo.filter(x => x.status === 'feedback' || x.status === 'liberar').length;
+  const semAcesso = tecs.filter(t => !t.user_vinculado).length;
   const tarefas = [
     d.pendentes && { n: d.pendentes, tom: 'tom-red', t: plural(d.pendentes, 'pedido de cadastro', 'pedidos de cadastro'), s: 'Aprove para o técnico poder entrar', ir: 'solicitacoes' },
-    d.feriasPendentes && { n: d.feriasPendentes, tom: 'tom-org', t: plural(d.feriasPendentes, 'pedido de férias aguardando', 'pedidos de férias aguardando'), s: 'Aprovar ou recusar', ir: 'ferias' },
-    d.vencendo && { n: d.vencendo, tom: 'tom-org', t: plural(d.vencendo, 'período aquisitivo vence', 'períodos aquisitivos vencem') + ' em 30 dias', s: d.alertas.slice(0, 3).map(a => `${primeiroNome(a.nome)} (${fmtCurto(a.fim_aquisitivo)})`).join(' · '), ir: 'equipe' },
-    semAval && { n: semAval, tom: 'tom-azul', t: plural(semAval, 'técnico para avaliar', 'técnicos para avaliar'), s: rotuloPer(per), ir: 'avaliacao' },
-    semFb && { n: semFb, tom: 'tom-azul', t: plural(semFb, 'feedback pendente', 'feedbacks pendentes'), s: 'Avaliados, mas o técnico ainda não recebeu o retorno', ir: 'avaliacao' },
+    semAval && { n: semAval, tom: 'tom-azul', t: plural(semAval, 'técnico para avaliar', 'técnicos para avaliar'), s: rotuloPer(per), ir: 'avaliacao', f: 'avaliar' },
+    semFb && { n: semFb, tom: 'tom-org', t: plural(semFb, 'feedback pendente', 'feedbacks pendentes'), s: 'Avaliados, mas o técnico ainda não recebeu o retorno', ir: 'avaliacao', f: 'feedback' },
+    semAcesso && { n: semAcesso, tom: 'tom-azul', t: plural(semAcesso, 'técnico sem acesso ao app', 'técnicos sem acesso ao app'), s: 'Sem acesso, não conseguem fazer a autoavaliação', ir: 'equipe', eq: 'semacesso' },
   ].filter(Boolean);
 
-  const disp = d.baseStats.reduce((s, b) => s + b.disponiveis, 0);
+  const conc = ciclo.filter(x => x.status === 'concluido').length, auto = ciclo.filter(x => x.auto).length;
+  const pct = ciclo.length ? Math.round(conc / ciclo.length * 100) : 0;
   c.innerHTML = `
     <div class="boas"><small>${esc(dataExtenso())}</small><h1>${saudacao()}, ${esc(primeiroNome(ME.nome))}</h1><p>Supervisor · ${esc(Object.values(BASES).join(' · '))}</p></div>
 
     <div class="secao"><h2>Precisa da sua atenção</h2></div>
     ${tarefas.length ? `<div class="tarefas">${tarefas.map(t => `
-      <button class="tarefa ${t.tom}" type="button" data-ir="${t.ir}"><span class="t-num num">${t.n}</span>
+      <button class="tarefa ${t.tom}" type="button" ${on(() => { if (t.f) AV.filtro = t.f; if (t.eq) EQ.filtro = t.eq; ir(t.ir); })}><span class="t-num num">${t.n}</span>
         <span class="t-txt"><b>${esc(t.t)}</b><span>${esc(t.s)}</span></span><span class="t-seta">›</span></button>`).join('')}</div>`
       : `<div class="tudo-ok">${ic('check')} Tudo em dia. Nenhuma pendência agora.</div>`}
 
-    <div class="secao"><h2>Hoje</h2></div>
+    <div class="secao"><h2>Avaliação · ${rotuloPer(per)}</h2><a href="#/avaliacao">Abrir</a></div>
+    <div class="progresso"><b>${conc} de ${ciclo.length} concluídos</b><div class="barra"><i style="width:${pct}%"></i></div><b>${pct}%</b></div>
     <div class="kpis">
-      <div class="kpi"><span>Técnicos</span><b class="num">${d.totalTecnicos}</b></div>
-      <div class="kpi"><span>Trabalhando</span><b class="num">${disp}</b><small>${d.totalTecnicos ? Math.round(disp / d.totalTecnicos * 100) : 0}% da equipe</small></div>
-      <div class="kpi"><span>De férias</span><b class="num">${d.emFeriasHoje}</b></div>
+      <div class="kpi"><span>Técnicos</span><b class="num">${tecs.length}</b></div>
+      <div class="kpi"><span>Autoavaliações</span><b class="num">${auto}</b><small>de ${ciclo.length}</small></div>
+      <div class="kpi"><span>Avaliados por você</span><b class="num">${ciclo.length - semAval}</b><small>de ${ciclo.length}</small></div>
     </div>
 
     <div class="secao"><h2>Por base</h2></div>
-    <div class="bases">${d.baseStats.map(b => `
-      <div class="base-c ${baseCls(b.base)}">
-        <header><b>${esc(baseNome(b.base))}</b><span>${b.disponiveis} de ${b.total} trabalhando</span></header>
-        <div class="barra"><i style="width:${b.pct}%"></i></div>
-        <p>${b.emFerias ? 'De férias: ' + esc(b.tecnicos.filter(t => t.emFerias).map(t => primeiroNome(t.nome)).join(', ')) : 'Ninguém de férias hoje'}${b.media != null ? ` · média ${nf(b.media)}` : ''}</p>
-      </div>`).join('')}</div>
-
-    <div class="secao"><h2>Férias nos próximos 14 dias</h2><a href="#/ferias" ${on(() => { FER.aba = 'calendario'; ir('ferias'); })}>Ver calendário</a></div>
-    <div class="dias14">${d.strip14.map(x => `
-      <div class="d14 ${x.date === d.hoje ? 'hoje' : ''}"><small>${x.date === d.hoje ? 'hoje' : esc(x.dow)}</small><b class="num">${+x.date.slice(8)}</b>
-        <div class="pessoas">${x.vacations.length ? x.vacations.map(v => `<span class="p ${baseCls(v.base)}" title="${esc(v.nome)}">${esc(primeiroNome(v.nome))}</span>`).join('') : '<span class="livre">—</span>'}</div></div>`).join('')}</div>`;
+    <div class="bases">${Object.keys(BASES).map(b => {
+      const cb = ciclo.filter(x => x.t.base === b), feitos = cb.filter(x => x.sup).length;
+      const st = d.baseStats.find(x => x.base === b);
+      return `<div class="base-c ${baseCls(b)}">
+        <header><b>${esc(baseNome(b))}</b><span>${feitos} de ${cb.length} avaliados</span></header>
+        <div class="barra"><i style="width:${cb.length ? Math.round(feitos / cb.length * 100) : 0}%"></i></div>
+        <p>${plural(cb.length, 'técnico', 'técnicos')}${st?.media != null ? ` · média geral ${nf(st.media)} ${etConceito(st.media)}` : ''}</p>
+      </div>`;
+    }).join('')}</div>`;
 }
 
 async function inicioTecnico(c) {
@@ -413,29 +401,25 @@ async function inicioTecnico(c) {
   if (!t) {
     c.innerHTML = `<div class="boas"><small>${esc(dataExtenso())}</small><h1>${saudacao()}, ${esc(primeiroNome(ME.nome))}</h1></div>
       <div class="secao"></div>
-      <div class="alerta amb">${ic('conta')}<div><b>Seu acesso ainda não está ligado ao seu cadastro de técnico.</b><br>Peça ao supervisor para colocar o e-mail <b>${esc(ME.email)}</b> no seu cadastro. Depois disso você verá suas férias e avaliações aqui.</div></div>`;
+      <div class="alerta amb">${ic('conta')}<div><b>Seu acesso ainda não está ligado ao seu cadastro de técnico.</b><br>Peça ao supervisor para colocar o e-mail <b>${esc(ME.email)}</b> no seu cadastro. Depois disso você verá suas avaliações aqui.</div></div>`;
     return;
   }
   const per = periodosAbertos()[0];
   const auto = avs.find(a => a.tipo === 'autoavaliacao' && a.periodo === per);
-  const prox = (d.ferias || []).find(f => f.status !== 'rejeitado');
-  const venc = t.fim_aquisitivo ? diasAte(t.fim_aquisitivo) : null;
   const sup = d.ultimaSupervisor;
 
   let passo;
   if (!auto) passo = { ic: 'aval', t: 'Faça sua autoavaliação', s: `${rotuloPer(per)} · leva uns 3 minutos`, b: 'Começar', fn: () => formAvaliacao({ periodo: per }) };
-  else if (!prox && venc != null && venc <= 90) passo = { ic: 'ferias', t: 'Marque suas férias', s: `Seu período aquisitivo termina em ${fmt(t.fim_aquisitivo)}`, b: 'Solicitar', fn: () => formFerias({}) };
   else if (sup && !lido(sup)) passo = { ic: 'aval', t: 'Seu feedback chegou', s: `Avaliação do supervisor · ${rotuloPer(sup.periodo)}`, b: 'Ver', fn: () => { marcarLido(sup); ir('avaliacao'); } };
 
   c.innerHTML = `
     <div class="boas"><small>${esc(dataExtenso())}</small><h1>${saudacao()}, ${esc(primeiroNome(ME.nome))}</h1><p>${esc(baseNome(t.base))} · Escala ${esc(t.escala)} · ${esc(t.turno)}</p></div>
     ${passo ? `<div class="secao"><h2>Seu próximo passo</h2></div>
-      <div class="proximo"><span class="ico">${ic(passo.ic)}</span><div class="txt"><b>${esc(passo.t)}</b><span>${esc(passo.s)}</span></div><button class="btn btn-pri" ${on(passo.fn)}>${esc(passo.b)}</button></div>` : ''}
+      <div class="proximo"><span class="ico">${ic(passo.ic)}</span><div class="txt"><b>${esc(passo.t)}</b><span>${esc(passo.s)}</span></div><button class="btn btn-pri" ${on(passo.fn)}>${esc(passo.b)}</button></div>`
+      : `<div class="secao"></div><div class="tudo-ok">${ic('check')} Tudo em dia por aqui.</div>`}
 
     <div class="secao"><h2>Resumo</h2></div>
     <div class="info-grade">
-      <div class="kpi"><span>Próximas férias</span><b style="font-size:17px">${prox ? `${fmtCurto(prox.inicio_p1)} a ${fmtCurto(prox.fim_p1)}` : 'Nenhuma'}</b><small>${prox ? statusFerias(prox.status).t : '<a href="#/ferias">Solicitar</a>'}</small></div>
-      <div class="kpi"><span>Período aquisitivo</span><b style="font-size:17px">${fmt(t.fim_aquisitivo)}</b><small>${venc == null ? '' : venc < 0 ? 'Vencido' : `faltam ${plural(venc, 'dia', 'dias')}`}</small></div>
       <div class="kpi"><span>Autoavaliação</span><b style="font-size:17px">${auto ? 'Feita' : 'Pendente'}</b><small>${rotuloPerCurto(per)}</small></div>
       <div class="kpi"><span>Última nota</span><b style="font-size:17px">${sup ? nf(sup.nota_final) : '—'}</b><small>${sup ? conceito(sup.nota_final) : 'Ainda sem avaliação liberada'}</small></div>
     </div>`;
@@ -733,323 +717,16 @@ function gerarPDF(avs, tec, per) {
   img.complete ? imprimir() : (img.onload = img.onerror = imprimir);
 }
 
-// ════════════ Página: Férias ════════════
-const FER = { aba: 'aguardando', base: '', mes: null };
-function statusFerias(s) { return { pendente: { t: 'Aguardando aprovação', c: 'et-org' }, aprovado: { t: 'Aprovada', c: 'et-ok' }, rejeitado: { t: 'Recusada', c: 'et-red' } }[s] || { t: s, c: 'et-cinza' }; }
-function diasFer(f) { return diffDias(f.inicio_p1, f.fim_p1) + (f.inicio_p2 ? diffDias(f.inicio_p2, f.fim_p2) : 0); }
-function periodosTxt(f) {
-  const p = (a, b) => `${fmt(a)} a ${fmt(b)} <span style="color:var(--muted)">(${diffDias(a, b)} dias)</span>`;
-  return `<div>${p(f.inicio_p1, f.fim_p1)}</div>${f.inicio_p2 ? `<div>${p(f.inicio_p2, f.fim_p2)}</div>` : ''}${f.abono_pecuniario ? '<div><span class="etiqueta et-amb">+ 10 dias vendidos (abono)</span></div>' : ''}`;
-}
-function sobrepoe(f, g) {
-  const r = x => [[x.inicio_p1, x.fim_p1], x.inicio_p2 ? [x.inicio_p2, x.fim_p2] : null].filter(Boolean);
-  return r(f).some(([a, b]) => r(g).some(([c, d]) => a <= d && c <= b));
-}
-
-PAGINAS.ferias = async c => isAdmin() ? feriasAdmin(c) : feriasTecnico(c);
-
-async function feriasAdmin(c) {
-  const lista = await api('GET', '/api/ferias');
-  const h = hoje();
-  const conflitos = f => lista.filter(g => g.id !== f.id && g.status === 'aprovado' && (g.tecnico_base === f.tecnico_base || g.tecnico_base === PAR[f.tecnico_base]) && sobrepoe(f, g));
-
-  const desenhar = () => {
-    const ag = lista.filter(f => f.status === 'pendente');
-    const prox = lista.filter(f => f.status === 'aprovado' && (f.fim_p2 || f.fim_p1) >= h).sort((a, b) => a.inicio_p1.localeCompare(b.inicio_p1));
-    let itens = FER.aba === 'aguardando' ? ag.sort((a, b) => a.inicio_p1.localeCompare(b.inicio_p1)) : FER.aba === 'proximas' ? prox : lista;
-    if (FER.base) itens = itens.filter(f => f.tecnico_base === FER.base);
-
-    c.innerHTML = `
-      <div class="pag-topo"><div><h1>Férias</h1><p>Aprove pedidos e veja quem está fora.</p></div>
-        <button class="btn btn-pri" ${on(() => formFerias({ aoSalvar: render }))}>${ic('mais1')}Registrar férias</button></div>
-      <div class="filtros" role="tablist">
-        ${[['aguardando', 'Aguardando', ag.length], ['proximas', 'Próximas', prox.length], ['todas', 'Todas', lista.length], ['calendario', 'Calendário', null]]
-          .map(([k, t, n]) => `<button class="filtro" role="tab" type="button" aria-pressed="${FER.aba === k}" ${on(() => { FER.aba = k; desenhar(); })}>${t}${n != null ? `<span class="n">${n}</span>` : ''}</button>`).join('')}
-      </div>
-      <div class="filtros" role="group" aria-label="Base">
-        <button class="filtro" type="button" aria-pressed="${!FER.base}" ${on(() => { FER.base = ''; desenhar(); })}>Todas as bases</button>
-        ${Object.keys(BASES).map(b => `<button class="filtro" type="button" aria-pressed="${FER.base === b}" ${on(() => { FER.base = b; desenhar(); })}>${esc(baseNome(b))}</button>`).join('')}
-      </div>
-      <div id="fer-area"></div>`;
-
-    const area = $('#fer-area');
-    if (FER.aba === 'calendario') { area.innerHTML = calendarioEquipe(lista.filter(f => f.status !== 'rejeitado' && (!FER.base || f.tecnico_base === FER.base))); return; }
-    area.innerHTML = itens.length ? `<div class="lista">${itens.map(f => {
-      const st = statusFerias(f.status), cf = f.status === 'pendente' ? conflitos(f) : [];
-      return `<article class="item ${baseCls(f.tecnico_base)}">
-        <div class="item-topo"><span class="avatar">${esc(iniciais(f.tecnico_nome))}</span>
-          <div class="item-tit"><b>${esc(f.tecnico_nome)}</b><div class="sub">${tagBase(f.tecnico_base)}<span class="etiqueta ${st.c}">${st.t}</span></div></div>
-          <button class="btn-icone" type="button" aria-label="Mais ações" ${on(() => menuAcoes(f.tecnico_nome, [
-            { t: 'Editar datas', ic: 'editar', fn: () => formFerias({ ferias: f, aoSalvar: render }) },
-            f.status !== 'pendente' && { t: 'Voltar para "aguardando"', ic: 'cal', fn: () => mudarStatusFerias(f, 'pendente') },
-            { t: 'Excluir', ic: 'lixo', perigo: true, fn: () => excluirFerias(f) },
-          ]))}>⋯</button></div>
-        <div style="margin-top:10px;font-size:14.5px">${periodosTxt(f)}</div>
-        ${cf.length ? `<div class="alerta red" style="margin:10px 0 0">⚠<div>Mesmo período de: ${cf.map(g => `<b>${esc(primeiroNome(g.tecnico_nome))}</b> (${esc(baseNome(g.tecnico_base))})`).join(', ')}</div></div>` : ''}
-        ${f.status === 'pendente' ? `<div class="item-acoes"><button class="btn btn-pri" ${on(() => mudarStatusFerias(f, 'aprovado'))}>${ic('check')}Aprovar</button><button class="btn btn-sec" ${on(() => mudarStatusFerias(f, 'rejeitado'))}>${ic('x')}Recusar</button></div>` : ''}
-      </article>`;
-    }).join('')}</div>` : `<div class="vazio"><b>${FER.aba === 'aguardando' ? 'Nenhum pedido aguardando' : 'Nada por aqui'}</b>${FER.aba === 'aguardando' ? 'Quando um técnico pedir férias, o pedido aparece aqui.' : ''}</div>`;
-  };
-  desenhar();
-}
-async function mudarStatusFerias(f, status) {
-  if (status === 'rejeitado' && !await confirmar('Recusar férias?', `${f.tecnico_nome} verá o pedido como recusado e poderá pedir outra data.`, { sim: 'Recusar', perigo: true })) return;
-  try { await api('PUT', `/api/ferias/${f.id}/status`, { status }); aviso(status === 'aprovado' ? 'Férias aprovadas.' : status === 'rejeitado' ? 'Pedido recusado.' : 'Voltou para aguardando.', 'ok'); render(); } catch (e) { erro(e); }
-}
-async function excluirFerias(f) {
-  if (!await confirmar(isAdmin() ? 'Excluir férias?' : 'Cancelar pedido?', `${fmt(f.inicio_p1)} a ${fmt(f.fim_p1)}${f.inicio_p2 ? ` e ${fmt(f.inicio_p2)} a ${fmt(f.fim_p2)}` : ''}`, { sim: isAdmin() ? 'Excluir' : 'Cancelar pedido', perigo: true })) return;
-  try { await api('DELETE', `/api/ferias/${f.id}`); aviso(isAdmin() ? 'Excluído.' : 'Pedido cancelado.'); render(); } catch (e) { erro(e); }
-}
-
-function calendarioEquipe(lista) {
-  const h = hoje();
-  if (!FER.mes) FER.mes = h.slice(0, 7);
-  const mapa = {};
-  lista.forEach(f => [[f.inicio_p1, f.fim_p1], [f.inicio_p2, f.fim_p2]].forEach(([a, b]) => {
-    if (!a) return; for (let d = a; d <= b; d = addDias(d, 1)) (mapa[d] = mapa[d] || []).push(f);
-  }));
-  const mes = (ym) => {
-    const [y, m] = ym.split('-').map(Number);
-    const pri = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(), dias = new Date(Date.UTC(y, m, 0)).getUTCDate();
-    let cel = '';
-    for (let i = 0; i < pri; i++) cel += '<span class="cal-d vazio"></span>';
-    for (let d = 1; d <= dias; d++) {
-      const iso = `${ym}-${String(d).padStart(2, '0')}`, fs = mapa[iso] || [];
-      const bs = new Set(fs.map(f => f.tecnico_base));
-      const conflito = [...bs].some(b => bs.has(PAR[b])) || fs.length > [...bs].length;
-      cel += `<button type="button" class="cal-d ${iso === h ? 'hoje' : ''} ${conflito ? 'conflito' : ''}" ${fs.length ? on(() => menuAcoes(`${dsem(iso)}, ${fmt(iso)}`, fs.map(f => ({ t: `${f.tecnico_nome} · ${baseNome(f.tecnico_base)}${f.status === 'pendente' ? ' (aguardando)' : ''}`, ic: 'conta', fn: () => {} })))) : ''}>
-        ${d}${fs.length ? `<span class="pts">${fs.slice(0, 4).map(f => `<i class="${baseCls(f.tecnico_base)}"></i>`).join('')}</span>` : ''}</button>`;
-    }
-    return `<div class="cal-mes"><h4>${MESES[m - 1]} ${y}</h4><div class="cal-sem">${'DSTQQSS'.split('').map(x => `<span>${x}</span>`).join('')}</div><div class="cal-dias">${cel}</div></div>`;
-  };
-  const prox = ym => { const [y, m] = ym.split('-').map(Number); return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`; };
-  const ant  = ym => { const [y, m] = ym.split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`; };
-  const ym2 = prox(FER.mes);
-  return `<div class="cal-nav"><button class="btn btn-sec btn-sm" ${on(() => { FER.mes = ant(FER.mes); render(); })} aria-label="Mês anterior">‹</button>
-      <b>${MESES[+FER.mes.slice(5) - 1]} ${FER.mes.slice(0, 4)}</b>
-      <button class="btn btn-sec btn-sm" ${on(() => { FER.mes = prox(FER.mes); render(); })} aria-label="Próximo mês">›</button></div>
-    <div class="cal-legenda">${Object.keys(BASES).map(b => `<span><i class="${baseCls(b)}" style="background:var(--cb);border-radius:50%"></i>${esc(baseNome(b))}</span>`).join('')}<span><i style="background:var(--red-soft);outline:1px solid var(--red)"></i>Bases parceiras fora ao mesmo tempo</span></div>
-    <p style="font-size:13px;color:var(--muted);margin:0 0 8px">Toque em um dia para ver quem está de férias.</p>
-    <div class="cal-meses dois">${mes(FER.mes)}${mes(ym2)}</div>`;
-}
-
-async function feriasTecnico(c) {
-  const [me, lista] = await Promise.all([api('GET', '/api/auth/me'), api('GET', '/api/ferias')]);
-  const t = me.tecnico;
-  if (!t) { c.innerHTML = `<div class="pag-topo"><h1>Férias</h1></div><div class="alerta amb">${ic('conta')}<div>Seu acesso ainda não está ligado ao seu cadastro de técnico. Fale com o supervisor.</div></div>`; return; }
-  const venc = t.fim_aquisitivo ? diasAte(t.fim_aquisitivo) : null;
-  c.innerHTML = `
-    <div class="pag-topo"><div><h1>Minhas férias</h1><p>Período aquisitivo até <b>${fmt(t.fim_aquisitivo)}</b>${venc != null && venc >= 0 ? ` · faltam ${plural(venc, 'dia', 'dias')}` : ''}</p></div></div>
-    <button class="btn btn-pri btn-lg btn-bloco" style="margin-bottom:16px" ${on(() => formFerias({ aoSalvar: render }))}>${ic('mais1')}Solicitar férias</button>
-    ${lista.length ? `<div class="lista">${lista.map(f => {
-      const st = statusFerias(f.status);
-      return `<article class="item"><div class="item-topo"><div class="item-tit"><b>${diasFer(f) + (f.abono_pecuniario ? 10 : 0)} dias</b><div class="sub"><span class="etiqueta ${st.c}">${st.t}</span></div></div>
-        ${f.status === 'pendente' ? `<button class="btn-icone" aria-label="Mais ações" ${on(() => menuAcoes('Pedido de férias', [
-          { t: 'Alterar datas', ic: 'editar', fn: () => formFerias({ ferias: f, aoSalvar: render }) },
-          { t: 'Cancelar pedido', ic: 'lixo', perigo: true, fn: () => excluirFerias(f) },
-        ]))}>⋯</button>` : ''}</div>
-        <div style="margin-top:10px;font-size:14.5px">${periodosTxt(f)}</div>
-        ${f.status === 'rejeitado' ? `<p style="margin:8px 0 0;font-size:13px;color:var(--muted)">Converse com o supervisor e faça um novo pedido com outra data.</p>` : ''}
-      </article>`;
-    }).join('')}</div>` : `<div class="vazio"><b>Nenhum pedido ainda</b>Toque em “Solicitar férias” para escolher as datas.</div>`}`;
-}
-
-// ── Formulário de férias ──
-const DIVISOES = [
-  { k: '30', t: '30 dias corridos', s: 'Um período só', p: [30] },
-  { k: 'abono', t: '20 dias + abono', s: 'Vende 10 dias', p: [20], abono: true },
-  { k: '15+15', t: '15 + 15', s: 'Dois períodos', p: [15, 15] },
-  { k: '20+10', t: '20 + 10', s: 'Dois períodos', p: [20, 10] },
-  { k: 'outra', t: 'Outra divisão', s: 'Você escolhe os dias', p: null },
-];
-async function formFerias({ ferias = null, aoSalvar = null }) {
-  const admin = isAdmin();
-  let tecs = [], tecId = ferias?.tecnico_id || null;
-  if (admin) tecs = await api('GET', '/api/tecnicos');
-  const s = {
-    ini: [ferias?.inicio_p1 || '', ferias?.inicio_p2 || ''],
-    dias: [ferias ? diffDias(ferias.inicio_p1, ferias.fim_p1) : 30, ferias?.inicio_p2 ? diffDias(ferias.inicio_p2, ferias.fim_p2) : 0],
-    abono: !!ferias?.abono_pecuniario, div: '30', alvo: 0, mes: null, cal: null,
-  };
-  if (ferias) {
-    const d = s.dias; s.div = s.abono && d[0] === 20 ? 'abono' : d[0] === 30 && !d[1] ? '30' : d[0] === 15 && d[1] === 15 ? '15+15' : d[0] === 20 && d[1] === 10 ? '20+10' : 'outra';
-  }
-
-  const corpo = `
-    ${admin ? `<label class="campo"><span>Técnico</span><select id="ff-tec"><option value="">Escolha…</option>${tecs.map(t => `<option value="${t.id}" ${t.id === tecId ? 'selected' : ''}>${esc(t.nome)} · ${esc(baseNome(t.base))}</option>`).join('')}</select></label>` : ''}
-    <div class="campo"><span>Como você quer dividir?</span><div class="divisoes" id="ff-div">${DIVISOES.map(d => `<button type="button" class="divisao" data-k="${d.k}" aria-pressed="${s.div === d.k}"><b>${d.t}</b><span>${d.s}</span></button>`).join('')}</div></div>
-    <div id="ff-periodos"></div>
-    <div id="ff-avisos"></div>
-    <div class="secao" style="margin-top:6px"><h2>Calendário</h2></div>
-    <div id="ff-cal"><div class="carregando">Carregando calendário…</div></div>
-    ${admin ? `<label class="campo" style="margin-top:12px"><span>Situação</span><select id="ff-status"><option value="pendente">Aguardando aprovação</option><option value="aprovado">Já aprovada</option></select></label>` : ''}`;
-  const rodape = `<div class="resultado"><div><small>Total</small><span class="nf num" id="ff-total">—</span></div></div><button class="btn btn-pri" id="ff-salvar" type="button">${ferias ? 'Salvar' : admin ? 'Registrar' : 'Enviar pedido'}</button>`;
-  Painel.abrir({ titulo: ferias ? 'Alterar férias' : admin ? 'Registrar férias' : 'Solicitar férias', corpo, rodape, largo: true });
-  if (admin && ferias) $('#ff-status').value = ferias.status === 'aprovado' ? 'aprovado' : 'pendente';
-
-  const nPer = () => s.div === 'outra' ? (s.dias[1] > 0 ? 2 : 1) : DIVISOES.find(d => d.k === s.div).p.length;
-  const fimDe = i => s.ini[i] && s.dias[i] > 0 ? addDias(s.ini[i], s.dias[i] - 1) : '';
-  const total = () => s.dias[0] + (nPer() > 1 ? s.dias[1] : 0) + (s.abono ? 10 : 0);
-
-  const desenharPeriodos = () => {
-    $('#ff-periodos').innerHTML = [0, 1].slice(0, s.div === 'outra' ? 2 : nPer()).map(i => {
-      const fim = fimDe(i);
-      return `<div class="periodo-c" style="${s.alvo === i ? 'border-color:var(--navy);box-shadow:inset 0 0 0 1px var(--navy)' : ''}">
-        <h4><span>${nPer() > 1 || s.div === 'outra' ? `Período ${i + 1}` : 'Período'}${s.div === 'outra' && i === 1 ? ' <span style="font-weight:500;color:var(--muted)">(opcional)</span>' : ''}</span>
-          <span class="etiqueta ${i ? 'et-azul' : 'et-ok'}">${s.dias[i] || 0} dias</span></h4>
-        <div class="grade-2 quebra">
-          <label class="campo" style="margin:0"><span>Começa em</span><input type="date" data-ini="${i}" value="${s.ini[i]}" min="${admin ? '' : hoje()}"></label>
-          ${s.div === 'outra' ? `<label class="campo" style="margin:0"><span>Quantos dias</span><input type="number" inputmode="numeric" min="${i ? 0 : 5}" max="30" data-dias="${i}" value="${s.dias[i] || ''}"></label>` : ''}
-        </div>
-        <div class="fim">${fim ? `Termina <b>${dsem(fim)}, ${fmt(fim)}</b> · volta ao trabalho ${dsem(addDias(fim, 1))}, ${fmt(addDias(fim, 1))}` : 'Escolha a data de início (ou toque no calendário).'}</div>
-      </div>`;
-    }).join('') + (s.div === 'outra' ? `<label class="campo" style="flex-direction:row;align-items:center;gap:10px"><input type="checkbox" id="ff-abono" style="width:22px;min-height:22px" ${s.abono ? 'checked' : ''}><span style="font-size:14.5px;font-weight:500;color:var(--ink)">Vender 10 dias (abono pecuniário) — só com 20 dias no período 1</span></label>` : '');
-    $$('[data-ini]').forEach(el => el.onchange = () => { const i = +el.dataset.ini; s.ini[i] = el.value; s.alvo = i; if (el.value) s.mes = el.value.slice(0, 7); atualizar(); });
-    $$('[data-dias]').forEach(el => el.oninput = () => { s.dias[+el.dataset.dias] = Math.max(0, Math.min(30, +el.value || 0)); atualizarSemPeriodos(); });
-    const ab = $('#ff-abono'); if (ab) ab.onchange = () => { s.abono = ab.checked; atualizarSemPeriodos(); };
-    $$('.periodo-c').forEach((el, i) => el.addEventListener('focusin', () => { if (s.alvo !== i) { s.alvo = i; desenharCal(); } }));
-  };
-
-  const validar = () => {
-    const erros = [], alertas = [];
-    if (admin && !$('#ff-tec').value) erros.push('Escolha o técnico.');
-    if (!s.ini[0]) erros.push('Escolha a data de início.');
-    if (nPer() > 1 && s.dias[1] > 0 && !s.ini[1]) erros.push('Escolha o início do período 2.');
-    if (s.dias[0] < 5) erros.push('O período 1 precisa ter pelo menos 5 dias.');
-    if (total() > 30) erros.push(`O total dá ${total()} dias; o máximo é 30.`);
-    if (s.abono && s.dias[0] !== 20) erros.push('O abono só vale com 20 dias no período 1.');
-    if (nPer() > 1 && s.ini[0] && s.ini[1] && s.ini[1] <= fimDe(0) && fimDe(1) >= s.ini[0]) erros.push('Os dois períodos se sobrepõem.');
-    if (!s.cal) return { erros, alertas };
-    const t = s.cal.tecnico;
-    if (s.ini[0] && t.fim_aquisitivo && s.ini[0] > addDias(t.fim_aquisitivo, 365)) alertas.push(['amb', 'Atenção: a data passa do prazo de concessão deste período aquisitivo.']);
-    const sel = { inicio_p1: s.ini[0], fim_p1: fimDe(0), inicio_p2: nPer() > 1 && s.ini[1] ? s.ini[1] : null, fim_p2: nPer() > 1 && s.ini[1] ? fimDe(1) : null };
-    if (s.ini[0]) {
-      const outros = s.cal.feriasList.filter(f => f.tipo !== 'proprio' && sobrepoe(sel, f));
-      const par = outros.filter(f => f.tipo === 'par'), mesma = outros.filter(f => f.tipo === 'mesma');
-      if (mesma.length) alertas.push(['red', `Da sua base, ${mesma.map(f => f.nome).join(', ')} já ${mesma.length > 1 ? 'estão' : 'está'} de férias nesse período.`]);
-      if (par.length) alertas.push(['amb', `Da base parceira (${esc(baseNome(PAR[t.base]))}), ${par.map(f => f.nome).join(', ')} ${par.length > 1 ? 'estarão' : 'estará'} de férias nesse período.`]);
-      const meus = s.cal.feriasList.filter(f => f.tipo === 'proprio' && f.id !== ferias?.id && sobrepoe(sel, f));
-      if (meus.length) erros.push('Você já tem férias pedidas ou aprovadas nesse período.');
-      if (!outros.length && !meus.length && fimDe(0)) alertas.push(['ok', 'Ninguém da sua base ou da base parceira está de férias nessas datas.']);
-    }
-    return { erros, alertas };
-  };
-
-  const desenharCal = () => {
-    const el = $('#ff-cal');
-    if (!s.cal) { el.innerHTML = admin ? '<div class="vazio">Escolha o técnico para ver o calendário dele.</div>' : el.innerHTML; return; }
-    const t = s.cal.tecnico, h = hoje();
-    if (!s.mes) s.mes = (s.ini[0] || h).slice(0, 7);
-    const sel = new Map();
-    [0, 1].forEach(i => { if (s.ini[i] && (i === 0 || nPer() > 1) && s.dias[i] > 0) for (let d = s.ini[i]; d <= fimDe(i); d = addDias(d, 1)) sel.set(d, i); });
-    const outros = {};
-    s.cal.feriasList.filter(f => f.id !== ferias?.id).forEach(f => [[f.inicio_p1, f.fim_p1], [f.inicio_p2, f.fim_p2]].forEach(([a, b]) => { if (a) for (let d = a; d <= b; d = addDias(d, 1)) (outros[d] = outros[d] || []).push(f); }));
-    const mes = ym => {
-      const [y, m] = ym.split('-').map(Number);
-      const pri = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(), nd = new Date(Date.UTC(y, m, 0)).getUTCDate();
-      let cel = ''; for (let i = 0; i < pri; i++) cel += '<span class="cal-d vazio"></span>';
-      for (let d = 1; d <= nd; d++) {
-        const iso = `${ym}-${String(d).padStart(2, '0')}`, os = outros[iso] || [];
-        const trab = trabalha(t.escala, iso), passado = !admin && iso < h;
-        const cls = [sel.has(iso) ? (sel.get(iso) ? 'sel2' : 'sel') : '', !sel.has(iso) && !trab ? 'folga' : '', iso === h ? 'hoje' : '', passado ? 'passado' : ''].join(' ');
-        cel += `<button type="button" class="cal-d ${cls}" data-dia="${iso}" ${passado ? 'disabled' : ''} title="${os.map(f => esc(f.nome) + (f.tipo === 'proprio' ? ' (você)' : '')).join(', ')}">${d}${os.length ? `<span class="pts">${os.slice(0, 3).map(f => `<i style="background:${f.tipo === 'proprio' ? 'var(--navy)' : f.tipo === 'mesma' ? 'var(--red)' : 'var(--amb)'}"></i>`).join('')}</span>` : ''}</button>`;
-      }
-      return `<div class="cal-mes"><h4>${MESES[m - 1]} ${y}</h4><div class="cal-sem">${'DSTQQSS'.split('').map(x => `<span>${x}</span>`).join('')}</div><div class="cal-dias">${cel}</div></div>`;
-    };
-    const mv = (ym, n) => { let [y, m] = ym.split('-').map(Number); m += n; while (m > 12) { m -= 12; y++; } while (m < 1) { m += 12; y--; } return `${y}-${String(m).padStart(2, '0')}`; };
-    el.innerHTML = `
-      <p style="font-size:13.5px;color:var(--ink2);margin:0 0 8px">Toque no dia em que ${nPer() > 1 ? `o <b>período ${s.alvo + 1}</b>` : 'as férias'} ${nPer() > 1 ? 'começa' : 'começam'}.${nPer() > 1 ? ` <a href="#" id="ff-troca">Escolher o período ${s.alvo ? 1 : 2}</a>` : ''}</p>
-      <div class="cal-nav"><button class="btn btn-sec btn-sm" type="button" id="ff-ant" aria-label="Mês anterior">‹</button><b>${MESES[+s.mes.slice(5) - 1]} ${s.mes.slice(0, 4)}</b><button class="btn btn-sec btn-sm" type="button" id="ff-prox" aria-label="Próximo mês">›</button></div>
-      <div class="cal-legenda"><span><i style="background:var(--ok)"></i>Período 1</span>${nPer() > 1 ? '<span><i style="background:var(--azul)"></i>Período 2</span>' : ''}<span><i style="background:#f7f8fc;outline:1px solid var(--line2)"></i>Dia de trabalho (escala ${esc(t.escala)})</span><span><i style="background:var(--red);border-radius:50%"></i>Colega da base</span><span><i style="background:var(--amb);border-radius:50%"></i>Base parceira</span></div>
-      <div class="cal-meses dois">${mes(s.mes)}${mes(mv(s.mes, 1))}</div>`;
-    $('#ff-ant').onclick = () => { s.mes = mv(s.mes, -1); desenharCal(); };
-    $('#ff-prox').onclick = () => { s.mes = mv(s.mes, 1); desenharCal(); };
-    const tr = $('#ff-troca'); if (tr) tr.onclick = e => { e.preventDefault(); s.alvo = s.alvo ? 0 : 1; desenharPeriodos(); desenharCal(); };
-    el.onclick = e => {
-      const b = e.target.closest('[data-dia]'); if (!b || b.disabled) return;
-      s.ini[s.alvo] = b.dataset.dia;
-      if (nPer() > 1 && s.alvo === 0 && !s.ini[1]) s.alvo = 1;
-      atualizar();
-    };
-  };
-
-  const atualizarSemPeriodos = () => {
-    $('#ff-total').textContent = `${total()} dias`;
-    const { erros, alertas } = validar();
-    $('#ff-avisos').innerHTML = alertas.map(([t, m]) => `<div class="alerta ${t}">${t === 'ok' ? ic('check') : '⚠'}<div>${m}</div></div>`).join('') +
-      (s.ini[0] && erros.length ? erros.filter(m => !m.startsWith('Escolha')).map(m => `<div class="alerta red">⚠<div>${esc(m)}</div></div>`).join('') : '');
-    desenharCal();
-    $$('.periodo-c .fim').forEach((el, i) => { const fim = fimDe(i); el.innerHTML = fim ? `Termina <b>${dsem(fim)}, ${fmt(fim)}</b> · volta ao trabalho ${dsem(addDias(fim, 1))}, ${fmt(addDias(fim, 1))}` : 'Escolha a data de início (ou toque no calendário).'; });
-    $$('.periodo-c .etiqueta').forEach((el, i) => el.textContent = `${s.dias[i] || 0} dias`);
-  };
-  const atualizar = () => { desenharPeriodos(); atualizarSemPeriodos(); };
-
-  $('#ff-div').onclick = e => {
-    const b = e.target.closest('.divisao'); if (!b) return;
-    s.div = b.dataset.k; $$('.divisao').forEach(x => x.setAttribute('aria-pressed', x === b));
-    const d = DIVISOES.find(x => x.k === s.div);
-    if (d.p) { s.dias = [d.p[0], d.p[1] || 0]; s.abono = !!d.abono; if (d.p.length === 1) s.ini[1] = ''; }
-    s.alvo = 0; atualizar();
-  };
-  const carregarCal = async id => {
-    s.cal = null;
-    if (!id) { desenharCal(); return; }
-    $('#ff-cal').innerHTML = '<div class="carregando">Carregando calendário…</div>';
-    try { s.cal = await api('GET', '/api/calendario' + (admin ? `?tecnico_id=${id}` : '')); } catch (e) { $('#ff-cal').innerHTML = `<div class="vazio">${esc(e.message)}</div>`; return; }
-    atualizar();
-  };
-  if (admin) $('#ff-tec').onchange = e => { tecId = +e.target.value || null; carregarCal(tecId); };
-  atualizar();
-  carregarCal(admin ? tecId : 'me');
-
-  $('#ff-salvar').onclick = async () => {
-    const { erros } = validar();
-    if (erros.length) { aviso(erros[0], 'erro'); return; }
-    const dois = nPer() > 1 && s.dias[1] > 0 && s.ini[1];
-    const body = {
-      tecnico_id: tecId, inicio_p1: s.ini[0], fim_p1: fimDe(0),
-      inicio_p2: dois ? s.ini[1] : null, fim_p2: dois ? fimDe(1) : null, abono_pecuniario: s.abono,
-    };
-    if (admin) body.status = $('#ff-status').value;
-    const btn = $('#ff-salvar'); btn.disabled = true;
-    try {
-      if (ferias) await api('PUT', `/api/ferias/${ferias.id}`, body); else await api('POST', '/api/ferias', body);
-      Painel.fechar(true);
-      aviso(ferias ? 'Férias alteradas.' : admin ? 'Férias registradas.' : 'Pedido enviado! O supervisor vai analisar.', 'ok');
-      (aoSalvar || render)();
-    } catch (e) { erro(e); btn.disabled = false; }
-  };
-}
-
-// escala: A/C trabalham Qua-Qui em semana ISO ímpar e Seg-Ter-Sex em semana par; B/D o contrário; SD/SN seg-sex
-function semanaISO(iso) {
-  const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const ini = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d - ini) / 86400000 + 1) / 7);
-}
-function trabalha(escala, iso) {
-  const dw = new Date(iso + 'T12:00:00Z').getUTCDay();
-  if (dw === 0 || dw === 6) return false;
-  const impar = semanaISO(iso) % 2 === 1, qq = dw === 3 || dw === 4;
-  switch (escala) {
-    case 'A': case 'C': return impar ? qq : !qq;
-    case 'B': case 'D': return impar ? !qq : qq;
-    default: return true;
-  }
-}
-
 // ════════════ Página: Equipe (técnicos) ════════════
 const EQ = { base: '', busca: '', filtro: '' };
 PAGINAS.equipe = async c => {
   const tecs = await api('GET', '/api/tecnicos');
-  const h = hoje();
   const desenhar = () => {
     let l = tecs;
     if (EQ.base) l = l.filter(t => t.base === EQ.base);
     if (EQ.busca) { const q = EQ.busca.toLowerCase(); l = l.filter(t => t.nome.toLowerCase().includes(q) || (t.email || '').includes(q)); }
     if (EQ.filtro === 'semacesso') l = l.filter(t => !t.user_vinculado);
-    if (EQ.filtro === 'vencendo') l = l.filter(t => t.fim_aquisitivo && t.fim_aquisitivo <= addDias(h, 30));
-    const semAc = tecs.filter(t => !t.user_vinculado).length, venc = tecs.filter(t => t.fim_aquisitivo && t.fim_aquisitivo <= addDias(h, 30)).length;
+    const semAc = tecs.filter(t => !t.user_vinculado).length;
     c.innerHTML = `
       <div class="pag-topo"><div><h1>Equipe</h1><p>${plural(tecs.length, 'técnico', 'técnicos')} cadastrados</p></div>
         <button class="btn btn-pri" ${on(() => formTecnico(null))}>${ic('mais1')}Técnico</button></div>
@@ -1057,15 +734,12 @@ PAGINAS.equipe = async c => {
       <div class="filtros">
         <button class="filtro" type="button" aria-pressed="${!EQ.base && !EQ.filtro}" ${on(() => { EQ.base = ''; EQ.filtro = ''; desenhar(); })}>Todos</button>
         ${Object.keys(BASES).map(b => `<button class="filtro" type="button" aria-pressed="${EQ.base === b}" ${on(() => { EQ.base = EQ.base === b ? '' : b; desenhar(); })}>${esc(baseNome(b))}</button>`).join('')}
-        ${venc ? `<button class="filtro" type="button" aria-pressed="${EQ.filtro === 'vencendo'}" ${on(() => { EQ.filtro = EQ.filtro === 'vencendo' ? '' : 'vencendo'; desenhar(); })}>Aquisitivo vencendo<span class="n">${venc}</span></button>` : ''}
         ${semAc ? `<button class="filtro" type="button" aria-pressed="${EQ.filtro === 'semacesso'}" ${on(() => { EQ.filtro = EQ.filtro === 'semacesso' ? '' : 'semacesso'; desenhar(); })}>Sem acesso ao app<span class="n">${semAc}</span></button>` : ''}
       </div>
       ${l.length ? `<div class="lista">${l.map(t => {
-        const d = t.fim_aquisitivo ? diasAte(t.fim_aquisitivo) : null;
         return `<article class="item ${baseCls(t.base)}" style="cursor:pointer" ${on(() => formTecnico(t))}>
           <div class="item-topo"><span class="avatar">${esc(iniciais(t.nome))}</span>
             <div class="item-tit"><b>${esc(t.nome)}</b><div class="sub">${tagBase(t.base)}<span>Escala ${esc(t.escala)} · ${esc(t.turno)}</span>
-              ${d != null && d < 0 ? '<span class="etiqueta et-red">Aquisitivo vencido</span>' : d != null && d <= 30 ? `<span class="etiqueta et-org">Aquisitivo vence em ${d} d</span>` : ''}
               ${!t.user_vinculado ? '<span class="etiqueta et-cinza">Sem acesso ao app</span>' : ''}</div></div>
             <span class="t-seta" style="color:var(--muted);font-size:22px">›</span></div></article>`;
       }).join('')}</div>` : `<div class="vazio"><b>Nenhum técnico encontrado</b></div>`}`;
@@ -1083,10 +757,6 @@ async function formTecnico(t) {
     <div class="campo"><span>Escala</span><div class="chips-escolha" id="ft-escala"></div></div>
     <div class="campo"><span>Turno</span><div class="chips-escolha" id="ft-turno"></div></div>
     <label class="campo"><span>Data de admissão</span><input type="date" id="ft-adm" value="${esc(v.admissao)}"></label>
-    <div class="bloco"><div class="bloco-tit" style="color:var(--navy)">Período aquisitivo atual</div>
-      <div class="grade-2"><label class="campo" style="margin:0"><span>Início</span><input type="date" id="ft-ini" value="${esc(v.inicio_aquisitivo)}"></label>
-      <label class="campo" style="margin:0"><span>Fim</span><input type="date" id="ft-fim" value="${esc(v.fim_aquisitivo)}"></label></div>
-      <small style="color:var(--muted);display:block;margin-top:6px">Preenchido sozinho pela admissão. Ajuste quando o técnico começar um novo período.</small></div>
     <div class="bloco"><div class="bloco-tit" style="color:var(--navy)">Acesso ao app</div>
       <label class="campo" style="margin:0"><span>E-mail que o técnico usa para entrar</span>
         <input type="email" id="ft-email" list="ft-users" value="${esc(v.email)}" placeholder="nome@${DOMINIO}" inputmode="email" autocomplete="off">
@@ -1099,17 +769,15 @@ async function formTecnico(t) {
   chipsEscolha($('#ft-turno'), TURNOS.map(x => [x, x]), v.turno);
   const acesso = () => {
     const e = $('#ft-email').value.trim().toLowerCase(), u = users.find(x => x.email === e);
-    $('#ft-acesso').innerHTML = !e ? '<span style="color:var(--muted)">Sem e-mail: o técnico não consegue ver férias e avaliações no app.</span>'
+    $('#ft-acesso').innerHTML = !e ? '<span style="color:var(--muted)">Sem e-mail: o técnico não consegue fazer a autoavaliação nem ver o resultado.</span>'
       : u ? `<span class="etiqueta et-ok">✓ Conta encontrada: ${esc(u.nome)}</span>`
       : `<span class="etiqueta et-amb">Ainda sem conta</span> <span style="color:var(--muted)">Peça para o técnico tocar em “Pedir cadastro” com este e-mail, ou crie em Usuários.</span>`;
   };
   acesso(); $('#ft-email').oninput = acesso;
-  $('#ft-adm').onchange = () => { const a = $('#ft-adm').value; if (a && (!$('#ft-ini').value || !t)) { $('#ft-ini').value = a; $('#ft-fim').value = fimAquisitivo(a); } };
-  $('#ft-ini').onchange = () => { const a = $('#ft-ini').value; if (a) $('#ft-fim').value = fimAquisitivo(a); };
   $('#ft-salvar').onclick = async () => {
     const body = {
       nome: $('#ft-nome').value.trim(), base: $('#ft-base').dataset.valor, escala: $('#ft-escala').dataset.valor, turno: $('#ft-turno').dataset.valor,
-      admissao: $('#ft-adm').value, inicio_aquisitivo: $('#ft-ini').value, fim_aquisitivo: $('#ft-fim').value, email: $('#ft-email').value.trim().toLowerCase(),
+      admissao: $('#ft-adm').value, email: $('#ft-email').value.trim().toLowerCase(),
     };
     const req = [['nome', '#ft-nome'], ['base', '#ft-base'], ['escala', '#ft-escala'], ['turno', '#ft-turno'], ['admissao', '#ft-adm']];
     const falta = req.filter(([k]) => !body[k]);
@@ -1121,7 +789,7 @@ async function formTecnico(t) {
     } catch (e) { erro(e); }
   };
   if (t) $('#ft-excluir').onclick = async () => {
-    if (!await confirmar(`Excluir ${t.nome}?`, 'Também apaga todas as férias e avaliações dele. Não dá para desfazer.\n(O acesso ao app continua em Usuários.)', { sim: 'Excluir tudo', perigo: true })) return;
+    if (!await confirmar(`Excluir ${t.nome}?`, 'Também apaga todas as avaliações dele. Não dá para desfazer.\n(O acesso ao app continua em Usuários.)', { sim: 'Excluir tudo', perigo: true })) return;
     try { await api('DELETE', `/api/tecnicos/${t.id}`); Painel.fechar(true); aviso('Técnico excluído.'); render(); } catch (e) { erro(e); }
   };
 }
@@ -1167,7 +835,7 @@ function formUsuario(u) {
   const corpo = `
     <label class="campo"><span>Nome</span><input id="fu-nome" value="${esc(u?.nome || '')}"></label>
     <label class="campo"><span>E-mail</span><input type="email" id="fu-email" value="${esc(u?.email || '')}" placeholder="nome@${DOMINIO}" inputmode="email"></label>
-    <div class="campo"><span>Perfil</span><div class="chips-escolha" id="fu-papel"></div><small>Supervisor vê toda a equipe, avalia e aprova férias.</small></div>
+    <div class="campo"><span>Perfil</span><div class="chips-escolha" id="fu-papel"></div><small>Supervisor vê toda a equipe, avalia e dá feedback.</small></div>
     <label class="campo"><span>${u ? 'Nova senha (deixe vazio para manter)' : 'Senha provisória'}</span><input type="text" id="fu-senha" autocomplete="off" placeholder="Mín. 8 caracteres"><small>A pessoa vai precisar trocar no primeiro acesso.</small></label>`;
   const rodape = `${u && u.id !== ME.id ? `<button class="btn btn-sec" id="fu-excluir" style="color:var(--red)" type="button">${ic('lixo')}Excluir</button>` : ''}<span class="esp"></span><button class="btn btn-pri" id="fu-salvar" type="button">Salvar</button>`;
   Painel.abrir({ titulo: u ? 'Editar usuário' : 'Novo usuário', corpo, rodape });
@@ -1180,7 +848,7 @@ function formUsuario(u) {
     try { if (u) await api('PUT', `/api/users/${u.id}`, body); else await api('POST', '/api/users', body); Painel.fechar(true); aviso('Usuário salvo.', 'ok'); render(); } catch (e) { erro(e); }
   };
   if ($('#fu-excluir')) $('#fu-excluir').onclick = async () => {
-    if (!await confirmar(`Excluir ${u.nome}?`, 'A pessoa perde o acesso ao app. O cadastro de técnico, férias e avaliações continuam.', { sim: 'Excluir', perigo: true })) return;
+    if (!await confirmar(`Excluir ${u.nome}?`, 'A pessoa perde o acesso ao app. O cadastro de técnico e as avaliações continuam.', { sim: 'Excluir', perigo: true })) return;
     try { await api('DELETE', `/api/users/${u.id}`); Painel.fechar(true); aviso('Usuário excluído.'); render(); } catch (e) { erro(e); }
   };
 }
@@ -1189,7 +857,6 @@ PAGINAS.bases = async c => {
   c.innerHTML = `<div class="pag-topo"><div><h1>Nomes das bases</h1><p>Aparecem em todo o app.</p></div></div>
     <section class="cartao" style="max-width:520px">
       ${Object.keys(BASES).map((k, i) => `<label class="campo"><span><span class="tag-base ${baseCls(k)}">${k}</span></span><input id="cfg-${i}" value="${esc(BASES[k])}" maxlength="20"></label>`).join('')}
-      <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Bases parceiras (uma cobre a outra): ${esc(baseNome('Base 1'))} ↔ ${esc(baseNome('Base 2'))} e ${esc(baseNome('Base 3'))} ↔ ${esc(baseNome('Base 4'))}.</p>
       <button class="btn btn-pri" ${on(async () => {
         const bases = {}; Object.keys(BASES).forEach((k, i) => bases[k] = $('#cfg-' + i).value.trim() || k);
         try { await api('PUT', '/api/config/bases', { bases }); BASES = bases; aviso('Nomes salvos.', 'ok'); render(); } catch (e) { erro(e); }

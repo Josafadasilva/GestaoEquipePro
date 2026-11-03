@@ -36,15 +36,6 @@ function hojeBR(offsetDias = 0) {
   const d = new Date(Date.now() + offsetDias * 86400000);
   return new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d);
 }
-function addDias(iso, n) {
-  const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-function fimAquisitivo(adm) {
-  const d = new Date(adm + 'T12:00:00Z'); d.setUTCFullYear(d.getUTCFullYear() + 1); d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-const diffDias = (a, b) => (a && b) ? Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 86400000) + 1 : 0;
 
 // Cálculo da nota (o servidor é a fonte da verdade; o navegador só mostra a prévia)
 const PESOS      = { conhecimentoTecnico: .20, segurancaOperacional: .20, iniciativaAtuacao: .15, disponibilidade: .15, trabalhoEquipe: .12, comunicacao: .10, proatividade: .08 };
@@ -84,10 +75,7 @@ async function seedDB() {
     await db.collection('config').insertOne({
       _id: 'main',
       bases:   { 'Base 1': 'BAS', 'Base 2': 'JBO', 'Base 3': 'CVN', 'Base 4': 'SMP' },
-      parBase: { 'Base 1': 'Base 2', 'Base 2': 'Base 1', 'Base 3': 'Base 4', 'Base 4': 'Base 3' },
     });
-  } else if (!cfg.parBase) {
-    await db.collection('config').updateOne({ _id: 'main' }, { $set: { parBase: { 'Base 1': 'Base 2', 'Base 2': 'Base 1', 'Base 3': 'Base 4', 'Base 4': 'Base 3' } } });
   }
 
   // e-mails sempre minúsculos (comparação exata, sem regex)
@@ -193,7 +181,7 @@ app.put('/api/auth/senha', auth, wrap(async (req, res) => {
 // ── Configuração ──────────────────────────────────────────
 app.get('/api/config', auth, wrap(async (req, res) => {
   const cfg = await db.collection('config').findOne({ _id: 'main' });
-  res.json({ bases: cfg?.bases || {}, parBase: cfg?.parBase || {} });
+  res.json({ bases: cfg?.bases || {} });
 }));
 
 app.put('/api/config/bases', auth, adminOnly, wrap(async (req, res) => {
@@ -222,11 +210,10 @@ app.post('/api/registros', limiteLogin, wrap(async (req, res) => {
   if (await db.collection('registros').findOne({ email, status: 'pendente' }))
     return res.status(400).json({ error: 'Já existe uma solicitação aguardando aprovação para este e-mail.' });
 
-  const fim = fimAquisitivo(admissao);
   await db.collection('registros').insertOne({
     id: await nextId('registros'), nome: String(nome).trim().slice(0, 80), email,
     password: bcrypt.hashSync(String(password), 10),
-    base, escala, turno, admissao, inicio_aquisitivo: admissao, fim_aquisitivo: fim,
+    base, escala, turno, admissao,
     status: 'pendente', created_at: new Date().toISOString(),
   });
   res.status(201).json({ ok: true });
@@ -247,8 +234,7 @@ app.post('/api/registros/:id/aprovar', auth, adminOnly, wrap(async (req, res) =>
   if (!await db.collection('tecnicos').findOne({ email: reg.email })) {
     await db.collection('tecnicos').insertOne({
       id: await nextId('tecnicos'), nome: reg.nome, base: reg.base, escala: reg.escala, turno: reg.turno,
-      admissao: reg.admissao, email: reg.email, inicio_aquisitivo: reg.inicio_aquisitivo,
-      fim_aquisitivo: reg.fim_aquisitivo, created_at: new Date().toISOString(),
+      admissao: reg.admissao, email: reg.email, created_at: new Date().toISOString(),
     });
   }
   await db.collection('registros').updateOne({ id }, { $set: { status: 'aprovado', aprovado_em: new Date().toISOString() } });
@@ -313,7 +299,7 @@ app.delete('/api/users/:id', auth, adminOnly, wrap(async (req, res) => {
 }));
 
 // ── Técnicos ──────────────────────────────────────────────
-const TEC_CAMPOS = ['nome', 'base', 'escala', 'turno', 'admissao', 'email', 'inicio_aquisitivo', 'fim_aquisitivo'];
+const TEC_CAMPOS = ['nome', 'base', 'escala', 'turno', 'admissao', 'email'];
 
 app.get('/api/tecnicos', auth, adminOnly, wrap(async (req, res) => {
   const users = await db.collection('users').find({}).toArray();
@@ -366,102 +352,7 @@ app.delete('/api/tecnicos/:id', auth, adminOnly, wrap(async (req, res) => {
   const id = +req.params.id;
   const r = await db.collection('tecnicos').deleteOne({ id });
   if (!r.deletedCount) return res.status(404).json({ error: 'Técnico não encontrado.' });
-  await db.collection('ferias').deleteMany({ tecnico_id: id });
   await db.collection('avaliacoes').deleteMany({ tecnico_id: id });
-  res.json({ ok: true });
-}));
-
-// ── Férias ────────────────────────────────────────────────
-function validaFerias(b) {
-  if (!isDate(b.inicio_p1) || !isDate(b.fim_p1)) return 'Informe o início e o fim do período 1.';
-  if (b.fim_p1 < b.inicio_p1) return 'No período 1, o fim está antes do início.';
-  if ((b.inicio_p2 && !b.fim_p2) || (!b.inicio_p2 && b.fim_p2)) return 'Informe início e fim do período 2 (ou deixe os dois vazios).';
-  if (b.inicio_p2) {
-    if (!isDate(b.inicio_p2) || !isDate(b.fim_p2) || b.fim_p2 < b.inicio_p2) return 'No período 2, o fim está antes do início.';
-    if (b.inicio_p2 <= b.fim_p1 && b.fim_p2 >= b.inicio_p1) return 'Os períodos 1 e 2 se sobrepõem.';
-  }
-  const total = diffDias(b.inicio_p1, b.fim_p1) + (b.inicio_p2 ? diffDias(b.inicio_p2, b.fim_p2) : 0) + (b.abono_pecuniario ? 10 : 0);
-  if (total > 30) return `O total dá ${total} dias; o máximo é 30.`;
-  if (b.abono_pecuniario && diffDias(b.inicio_p1, b.fim_p1) !== 20) return 'O abono só vale com 20 dias de férias no período 1.';
-  return null;
-}
-
-app.get('/api/ferias', auth, wrap(async (req, res) => {
-  const tecs = await db.collection('tecnicos').find({}).toArray();
-  let list = await db.collection('ferias').find({}).toArray();
-  if (req.user.role !== 'admin') {
-    const tec = await tecnicoDoUsuario(req.user.id);
-    if (!tec) return res.json([]);
-    list = list.filter(f => f.tecnico_id === tec.id);
-  }
-  res.json(list.map(f => {
-    const t = tecs.find(x => x.id === f.tecnico_id);
-    return { ...f, tecnico_nome: t?.nome || '?', tecnico_base: t?.base || '?', tecnico_escala: t?.escala || '' };
-  }).sort((a, b) => (b.inicio_p1 || '').localeCompare(a.inicio_p1 || '')));
-}));
-
-app.post('/api/ferias', auth, wrap(async (req, res) => {
-  const b = req.body || {};
-  let tecnico_id = +b.tecnico_id;
-  if (req.user.role !== 'admin') {
-    const tec = await tecnicoDoUsuario(req.user.id);
-    if (!tec) return res.status(403).json({ error: 'Seu usuário ainda não está ligado a um técnico. Fale com o supervisor.' });
-    tecnico_id = tec.id;
-  }
-  if (!await db.collection('tecnicos').findOne({ id: tecnico_id })) return res.status(400).json({ error: 'Escolha o técnico.' });
-  const obj = {
-    tecnico_id, inicio_p1: b.inicio_p1, fim_p1: b.fim_p1,
-    inicio_p2: b.inicio_p2 || null, fim_p2: b.fim_p2 || null, abono_pecuniario: !!b.abono_pecuniario,
-  };
-  const erro = validaFerias(obj); if (erro) return res.status(400).json({ error: erro });
-  obj.id = await nextId('ferias');
-  obj.status = req.user.role === 'admin' && ['pendente', 'aprovado', 'rejeitado'].includes(b.status) ? b.status : 'pendente';
-  obj.created_at = new Date().toISOString();
-  await db.collection('ferias').insertOne(obj);
-  res.status(201).json(obj);
-}));
-
-app.put('/api/ferias/:id', auth, wrap(async (req, res) => {
-  const id = +req.params.id;
-  const fer = await db.collection('ferias').findOne({ id });
-  if (!fer) return res.status(404).json({ error: 'Registro não encontrado.' });
-  const isAdmin = req.user.role === 'admin';
-  if (!isAdmin) {
-    const tec = await tecnicoDoUsuario(req.user.id);
-    if (!tec || fer.tecnico_id !== tec.id) return res.status(403).json({ error: 'Você só pode alterar as suas férias.' });
-    if (fer.status !== 'pendente') return res.status(400).json({ error: 'Férias já analisadas não podem ser alteradas. Fale com o supervisor.' });
-  }
-  const b = req.body || {};
-  const obj = {
-    tecnico_id: isAdmin && b.tecnico_id ? +b.tecnico_id : fer.tecnico_id,
-    inicio_p1: b.inicio_p1 ?? fer.inicio_p1, fim_p1: b.fim_p1 ?? fer.fim_p1,
-    inicio_p2: b.inicio_p2 === undefined ? fer.inicio_p2 : (b.inicio_p2 || null),
-    fim_p2:    b.fim_p2    === undefined ? fer.fim_p2    : (b.fim_p2 || null),
-    abono_pecuniario: b.abono_pecuniario === undefined ? fer.abono_pecuniario : !!b.abono_pecuniario,
-  };
-  const erro = validaFerias(obj); if (erro) return res.status(400).json({ error: erro });
-  if (isAdmin && ['pendente', 'aprovado', 'rejeitado'].includes(b.status)) obj.status = b.status;
-  await db.collection('ferias').updateOne({ id }, { $set: obj });
-  res.json({ ok: true });
-}));
-
-app.put('/api/ferias/:id/status', auth, adminOnly, wrap(async (req, res) => {
-  const status = req.body?.status;
-  if (!['pendente', 'aprovado', 'rejeitado'].includes(status)) return res.status(400).json({ error: 'Status inválido.' });
-  const r = await db.collection('ferias').updateOne({ id: +req.params.id }, { $set: { status, analisado_em: new Date().toISOString() } });
-  if (!r.matchedCount) return res.status(404).json({ error: 'Registro não encontrado.' });
-  res.json({ ok: true });
-}));
-
-app.delete('/api/ferias/:id', auth, wrap(async (req, res) => {
-  const fer = await db.collection('ferias').findOne({ id: +req.params.id });
-  if (!fer) return res.status(404).json({ error: 'Registro não encontrado.' });
-  if (req.user.role !== 'admin') {
-    const tec = await tecnicoDoUsuario(req.user.id);
-    if (!tec || fer.tecnico_id !== tec.id) return res.status(403).json({ error: 'Você só pode cancelar as suas férias.' });
-    if (fer.status !== 'pendente') return res.status(400).json({ error: 'Férias já analisadas só podem ser canceladas pelo supervisor.' });
-  }
-  await db.collection('ferias').deleteOne({ id: fer.id });
   res.json({ ok: true });
 }));
 
@@ -553,104 +444,27 @@ app.put('/api/avaliacoes/:id/feedback', auth, adminOnly, wrap(async (req, res) =
 }));
 
 // ── Painel do supervisor ──────────────────────────────────
-function emFerias(ferias, tecId, data) {
-  return ferias.some(f => f.tecnico_id === tecId && f.status === 'aprovado' &&
-    ((f.inicio_p1 <= data && data <= f.fim_p1) || (f.inicio_p2 && f.inicio_p2 <= data && data <= f.fim_p2)));
-}
-
 app.get('/api/dashboard', auth, adminOnly, wrap(async (req, res) => {
-  const hoje = hojeBR(), em30 = hojeBR(30), em7 = hojeBR(7);
-  const tecs   = await db.collection('tecnicos').find({}).toArray();
-  const ferias = await db.collection('ferias').find({}).toArray();
-  const avals  = await db.collection('avaliacoes').find({ tipo: 'supervisor' }).toArray();
-  const cfg    = await db.collection('config').findOne({ _id: 'main' });
-  const bases  = cfg?.bases || {};
+  const tecs  = await db.collection('tecnicos').find({}).toArray();
+  const avals = await db.collection('avaliacoes').find({ tipo: 'supervisor' }).toArray();
+  const cfg   = await db.collection('config').findOne({ _id: 'main' });
   const pendentes = await db.collection('registros').countDocuments({ status: 'pendente' });
-
-  const baseStats = Object.keys(bases).map(base => {
-    const bt = tecs.filter(t => t.base === base);
-    const emF = bt.filter(t => emFerias(ferias, t.id, hoje)).length;
-    const ids = new Set(bt.map(t => t.id));
+  const baseStats = Object.keys(cfg?.bases || {}).map(base => {
+    const ids = new Set(tecs.filter(t => t.base === base).map(t => t.id));
     const avs = avals.filter(a => ids.has(a.tecnico_id));
-    const media = avs.length ? Math.round(avs.reduce((s, a) => s + a.nota_final, 0) / avs.length * 100) / 100 : null;
-    return {
-      base, total: bt.length, emFerias: emF, disponiveis: bt.length - emF,
-      pct: bt.length ? Math.round((bt.length - emF) / bt.length * 100) : 0, media,
-      tecnicos: bt.map(t => ({ id: t.id, nome: t.nome, emFerias: emFerias(ferias, t.id, hoje) })),
-    };
+    return { base, total: ids.size, media: avs.length ? Math.round(avs.reduce((s, a) => s + a.nota_final, 0) / avs.length * 100) / 100 : null };
   });
-
-  const alertas = tecs.filter(t => t.fim_aquisitivo && t.fim_aquisitivo >= hoje && t.fim_aquisitivo <= em30)
-    .map(t => ({ id: t.id, nome: t.nome, base: t.base, fim_aquisitivo: t.fim_aquisitivo }))
-    .sort((a, b) => a.fim_aquisitivo.localeCompare(b.fim_aquisitivo));
-  const feriasBreve = ferias.filter(f => f.status === 'aprovado' && f.inicio_p1 >= hoje && f.inicio_p1 <= em7).map(f => {
-    const t = tecs.find(x => x.id === f.tecnico_id);
-    return { inicio_p1: f.inicio_p1, nome: t?.nome || '?', base: t?.base || '?' };
-  });
-  const feriasPendentes = ferias.filter(f => f.status === 'pendente').length;
-
-  const strip14 = [];
-  for (let i = 0; i < 14; i++) {
-    const ds = hojeBR(i);
-    const dow = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][new Date(ds + 'T12:00:00Z').getUTCDay()];
-    const vacations = ferias.filter(f => f.status === 'aprovado' &&
-      ((f.inicio_p1 <= ds && ds <= f.fim_p1) || (f.inicio_p2 && f.inicio_p2 <= ds && ds <= f.fim_p2)))
-      .map(f => { const t = tecs.find(x => x.id === f.tecnico_id); return { nome: t?.nome || '?', base: t?.base || '?' }; });
-    strip14.push({ date: ds, dow, vacations });
-  }
-
-  res.json({
-    hoje, totalTecnicos: tecs.length, emFeriasHoje: tecs.filter(t => emFerias(ferias, t.id, hoje)).length,
-    vencendo: alertas.length, baseStats, alertas, feriasBreve, pendentes, feriasPendentes, strip14,
-  });
+  res.json({ hoje: hojeBR(), totalTecnicos: tecs.length, pendentes, baseStats });
 }));
 
 // ── Painel do técnico ─────────────────────────────────────
 app.get('/api/dashboard/me', auth, wrap(async (req, res) => {
   const tec = await tecnicoDoUsuario(req.user.id);
-  if (!tec) return res.json({ tecnico: null, ferias: [], avaliacoes: [], media: null });
-  const hoje = hojeBR();
-  const ferias = await db.collection('ferias').find({ tecnico_id: tec.id }).sort({ inicio_p1: 1 }).toArray();
+  if (!tec) return res.json({ tecnico: null, avaliacoes: [], ultimaSupervisor: null });
   const avAll = await db.collection('avaliacoes').find({ tecnico_id: tec.id }).toArray();
   const visiveis = avAll.filter(a => a.tipo === 'autoavaliacao' || a.liberado);
   const supLib = visiveis.filter(a => a.tipo === 'supervisor').sort((a, b) => b.periodo.localeCompare(a.periodo));
-  res.json({
-    hoje, tecnico: tec,
-    ferias: ferias.filter(f => f.fim_p1 >= hoje || (f.fim_p2 && f.fim_p2 >= hoje)),
-    avaliacoes: visiveis,
-    ultimaSupervisor: supLib[0] || null,
-  });
-}));
-
-// ── Calendário de férias ──────────────────────────────────
-app.get('/api/calendario', auth, wrap(async (req, res) => {
-  const tecs = await db.collection('tecnicos').find({}).toArray();
-  const cfg = await db.collection('config').findOne({ _id: 'main' });
-  const parBase = cfg?.parBase || {};
-
-  let tecnico;
-  if (req.user.role === 'admin' && req.query.tecnico_id) tecnico = tecs.find(t => t.id === +req.query.tecnico_id);
-  else tecnico = await tecnicoDoUsuario(req.user.id);
-  if (!tecnico) return res.status(404).json({ error: 'Seu usuário ainda não está ligado a um técnico. Fale com o supervisor.' });
-
-  const basePar = parBase[tecnico.base];
-  const parIds = new Set(tecs.filter(t => basePar && t.base === basePar).map(t => t.id));
-  const mesmaIds = new Set(tecs.filter(t => t.base === tecnico.base && t.id !== tecnico.id).map(t => t.id));
-  const limite = hojeBR(730);
-
-  const todas = await db.collection('ferias').find({ status: { $in: ['aprovado', 'pendente'] } }).toArray();
-  const feriasList = todas
-    .filter(f => f.inicio_p1 && f.inicio_p1 <= limite)
-    .filter(f => f.tecnico_id === tecnico.id || (f.status === 'aprovado' && (parIds.has(f.tecnico_id) || mesmaIds.has(f.tecnico_id))))
-    .map(f => {
-      const t = tecs.find(x => x.id === f.tecnico_id);
-      const tipo = f.tecnico_id === tecnico.id ? 'proprio' : parIds.has(f.tecnico_id) ? 'par' : 'mesma';
-      // Para colegas, só o primeiro nome (privacidade)
-      const nome = tipo === 'proprio' ? t?.nome : (t?.nome || '').split(' ')[0];
-      return { id: f.id, inicio_p1: f.inicio_p1, fim_p1: f.fim_p1, inicio_p2: f.inicio_p2, fim_p2: f.fim_p2, status: f.status, tipo, nome };
-    });
-
-  res.json({ hoje: hojeBR(), tecnico: { id: tecnico.id, nome: tecnico.nome, base: tecnico.base, escala: tecnico.escala, fim_aquisitivo: tecnico.fim_aquisitivo }, feriasList });
+  res.json({ hoje: hojeBR(), tecnico: tec, avaliacoes: visiveis, ultimaSupervisor: supLib[0] || null });
 }));
 
 // ── SPA ───────────────────────────────────────────────────

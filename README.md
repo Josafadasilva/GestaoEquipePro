@@ -1,26 +1,22 @@
 # GestaoEquipePro
 
-Gestão da equipe de sinalização da Trivia: técnicos, férias e avaliação de desempenho semestral
+Gestão da equipe de sinalização da Trivia: cadastro de técnicos e avaliação de desempenho semestral
 (autoavaliação → avaliação do supervisor → feedback → liberação para o técnico).
+As férias ficam no app de férias da equipe, separado deste.
 
 Visual no padrão do **Portal Manutenção Trivia**, pensado primeiro para o celular.
 
 ## O que cada perfil faz
 
 **Técnico**
-- Início com o "próximo passo" (fazer autoavaliação, marcar férias, ver feedback).
-- Pede férias escolhendo a divisão (30, 20 + abono, 15 + 15, 20 + 10 ou outra) e tocando no
-  calendário; o app mostra dias de trabalho da escala, data de volta e avisa se colegas da base
-  ou da base parceira estarão fora.
+- Início com o "próximo passo" (fazer autoavaliação ou ver o feedback).
 - Faz a autoavaliação (10 critérios, notas 1 a 5) e vê o resultado e o feedback quando liberados.
 
 **Supervisor**
-- Início com "Precisa da sua atenção": pedidos de cadastro, férias aguardando, períodos
-  aquisitivos vencendo, técnicos para avaliar e feedbacks pendentes.
+- Início com "Precisa da sua atenção": pedidos de cadastro, técnicos para avaliar,
+  feedbacks pendentes e técnicos sem acesso ao app, além do andamento do semestre por base.
 - Avaliação: progresso do semestre, filtros por situação e base, e um botão com o próximo passo
   de cada técnico (Avaliar → Dar feedback → Liberar → PDF).
-- Férias: aprova ou recusa direto no cartão, com aviso de conflito com a base parceira, e vê
-  o calendário da equipe.
 - Equipe, pedidos de cadastro, usuários e nomes das bases.
 
 ## Instalação
