@@ -1,66 +1,52 @@
 # GestaoEquipePro
 
-Sistema web de gestão de equipe técnica, férias e avaliações de desempenho.
+Gestão da equipe de sinalização da Trivia: técnicos, férias e avaliação de desempenho semestral
+(autoavaliação → avaliação do supervisor → feedback → liberação para o técnico).
 
-## Funcionalidades
+Visual no padrão do **Portal Manutenção Trivia**, pensado primeiro para o celular.
 
-- **Cadastro de técnicos** com vínculo a usuários do sistema
-- **Controle de férias** com calendário de equipe e detecção de conflitos por base
-- **Avaliações de desempenho** semestrais (autoavaliação + supervisor + feedback)
-- **Dashboard** moderno com KPIs, status por base e strip de 14 dias
-- **Geração de PDF** de avaliação completa
-- Controle de acesso por role: `admin` (supervisor) e `user` (técnico)
+## O que cada perfil faz
 
-## Tecnologias
+**Técnico**
+- Início com o "próximo passo" (fazer autoavaliação, marcar férias, ver feedback).
+- Pede férias escolhendo a divisão (30, 20 + abono, 15 + 15, 20 + 10 ou outra) e tocando no
+  calendário; o app mostra dias de trabalho da escala, data de volta e avisa se colegas da base
+  ou da base parceira estarão fora.
+- Faz a autoavaliação (10 critérios, notas 1 a 5) e vê o resultado e o feedback quando liberados.
 
-- Node.js + Express
-- Autenticação JWT (`jsonwebtoken`)
-- Banco de dados em arquivo JSON (`lowdb@1.0.0`)
-- Frontend vanilla JS + CSS (sem frameworks)
+**Supervisor**
+- Início com "Precisa da sua atenção": pedidos de cadastro, férias aguardando, períodos
+  aquisitivos vencendo, técnicos para avaliar e feedbacks pendentes.
+- Avaliação: progresso do semestre, filtros por situação e base, e um botão com o próximo passo
+  de cada técnico (Avaliar → Dar feedback → Liberar → PDF).
+- Férias: aprova ou recusa direto no cartão, com aviso de conflito com a base parceira, e vê
+  o calendário da equipe.
+- Equipe, pedidos de cadastro, usuários e nomes das bases.
 
 ## Instalação
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/SEU_USUARIO/GestaoEquipePro.git
-cd GestaoEquipePro
-
-# 2. Instale as dependências
 npm install
-
-# 3. Crie o banco de dados inicial
-cp gestao.example.json gestao.json
-
-# 4. (Opcional) Crie um .env com JWT_SECRET personalizado
-echo "JWT_SECRET=sua_chave_secreta_aqui" > .env
-
-# 5. Inicie o servidor
-npm start
+npm start          # http://localhost:3000
 ```
-
-Acesse em: `http://localhost:3000`
-
-## Primeiro acesso
-
-Após copiar o `gestao.example.json` para `gestao.json`, use a opção **Solicitar Acesso** na tela de login para criar o primeiro administrador, ou edite o `gestao.json` manualmente adicionando um usuário com `"role": "admin"` e senha gerada com bcrypt.
 
 ## Variáveis de ambiente
 
-| Variável | Padrão | Descrição |
+| Variável | Obrigatória | Descrição |
 |---|---|---|
-| `PORT` | `3000` | Porta do servidor |
-| `JWT_SECRET` | `gestao_secret_2025` | Chave de assinatura JWT |
+| `MONGODB_URI` | sim | Conexão do MongoDB |
+| `JWT_SECRET` | sim em produção | Chave longa e aleatória para assinar os logins |
+| `ALLOWED_DOMAIN` | não | Domínio de e-mail aceito (padrão `triviatrens.com.br`) |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | não | Primeiro supervisor, criado só se não existir nenhum. Sem senha definida, uma provisória é gerada e mostrada uma vez no log |
+| `PORT` | não | Porta (padrão 3000) |
+
+Quem entra com senha provisória (ou com a antiga senha padrão) é obrigado a trocar no primeiro acesso.
 
 ## Estrutura
 
 ```
-GestaoEquipePro/
-├── server.js           # API REST (Express)
-├── gestao.json         # Banco de dados (não versionado)
-├── gestao.example.json # Estrutura de exemplo do banco
-├── package.json
-└── public/
-    ├── index.html
-    ├── app.js
-    └── style.css
+server.js          API (Express + MongoDB); notas calculadas no servidor
+public/index.html  estrutura das telas
+public/style.css   visual (padrão Portal Trivia)
+public/app.js      interface
 ```
