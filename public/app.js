@@ -76,7 +76,7 @@ function calcNotas(c) {
 }
 function conceito(n) {
   if (n >= 5.5) return 'Excelente';
-  if (n >= 4.5) return 'Bom';
+  if (n >= 4.0) return 'Bom';
   if (n >= 3.0) return 'Regular';
   return 'Insuficiente';
 }
@@ -85,9 +85,9 @@ const nf = n => n == null ? '—' : Number(n).toFixed(2).replace('.', ',');
 function regua(n) {
   const pos = n == null ? null : Math.min(100, Math.max(0, n / NOTA_MAX * 100));
   return `<div class="regua-wrap"><div class="regua">
-      <i style="width:50%;background:#f6d2cf"></i><i style="width:25%;background:#f7e5b5"></i><i style="width:16.67%;background:#cfe0fb"></i><i style="width:8.33%;background:#c7ecd6"></i>
+      <i style="width:50%;background:#f6d2cf"></i><i style="width:16.67%;background:#f7e5b5"></i><i style="width:25%;background:#cfe0fb"></i><i style="width:8.33%;background:#c7ecd6"></i>
     </div>${pos == null ? '' : `<span class="regua-marca" style="left:${pos}%"></span>`}
-    <div class="regua-rot"><span>0</span><span>3,0</span><span>4,5</span><span>5,5</span><span>6,0</span></div></div>`;
+    <div class="regua-rot" style="position:relative;height:16px">${[[0, '0'], [50, '3,0'], [66.67, '4,0'], [91.67, '5,5'], [100, '6,0']].map(([l, t]) => `<span style="position:absolute;left:${l}%;transform:translateX(${l === 0 ? '0' : l === 100 ? '-100%' : '-50%'})">${t}</span>`).join('')}</div></div>`;
 }
 
 // ════════════ Ícones ════════════
@@ -602,7 +602,7 @@ async function formAvaliacao({ av = null, tecnicoId = null, periodo = null, auto
     ${leitura ? '' : `<details class="explica"><summary>O que significa cada nota e como é calculado</summary>
       <ul>${[1, 2, 3, 4, 5].map(n => `<li><b>${n}</b> — ${SIGNIF[n]}</li>`).join('')}</ul>
       <p>A <b>nota base</b> é a média ponderada dos 7 primeiros critérios (pesos ao lado de cada um). Os 3 critérios do <b>fator organizacional</b> viram um multiplicador de 0,80× a 1,20×. Nota final = base × fator, de 0 a 6.</p>
-      ${regua(null)}<p style="font-size:13px">Insuficiente abaixo de 3,0 · Regular até 4,49 · Bom até 5,49 · Excelente a partir de 5,5</p></details>`}
+      ${regua(null)}<p style="font-size:13px">Insuficiente abaixo de 3,0 · Regular de 3,0 a 3,99 · Bom de 4,0 a 5,49 · Excelente a partir de 5,5</p></details>`}
     ${['tec', 'comp', 'org'].map(g => `<div class="grupo-crit ${GRUPOS[g][1]}"><span>${GRUPOS[g][0]}</span><span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--muted)">${GRUPOS[g][2]}</span></div>${CRIT.filter(x => x.g === g).map(critHtml).join('')}`).join('')}
     <section class="bloco" style="margin-top:14px"><div class="bloco-tit" style="color:var(--navy)">Resultado</div>
       <div class="notas-linha" style="margin:0 0 6px"><span>Nota base <b class="num" id="r-base">—</b></span><span>× Fator <b class="num" id="r-mult">—</b></span></div>
@@ -709,7 +709,7 @@ function gerarPDF(avs, tec, per) {
       <table class="pr-t"><thead><tr><th>Critério</th><th>Autoavaliação</th><th>Supervisor</th></tr></thead>
       <tbody>${linhas}${tot('Nota base', 'nota_base')}${tot('Fator organizacional', 'multiplicador')}${tot('Nota final', 'nota_final')}
       <tr class="tot"><td>Conceito</td><td class="c">${auto ? conceito(auto.nota_final) : '—'}</td><td class="c">${sup ? conceito(sup.nota_final) : '—'}</td></tr></tbody></table>
-      <p style="font-size:9px;color:#666;margin-top:4px">Escala da nota final: 0 a 6. Insuficiente &lt; 3,0 · Regular 3,0–4,49 · Bom 4,5–5,49 · Excelente ≥ 5,5.</p></div>
+      <p style="font-size:9px;color:#666;margin-top:4px">Escala da nota final: 0 a 6. Insuficiente &lt; 3,0 · Regular 3,0–3,99 · Bom 4,0–5,49 · Excelente ≥ 5,5.</p></div>
     ${sup?.feedback_texto ? `<div class="pr-sec"><h2>Feedback do supervisor · ${fmt(sup.feedback_data)}</h2><div class="pr-fb">${esc(sup.feedback_texto)}</div></div>` : ''}
     <div class="pr-ass"><div>${esc(tec.nome || tec.tecnico_nome)}<br><small>Técnico</small></div><div>Supervisor<br><small>${fmt(sup?.feedback_data || hoje())}</small></div></div>`;
   const img = $('#impressao img');
