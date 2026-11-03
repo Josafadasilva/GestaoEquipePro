@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>/*__CSS__*/</style>
+</head>
+<body class="__EMBED__">
+
+<!-- ═════════ APP ═════════ -->
+<div id="tela-app" class="tela-app">
+  <header class="topo">
+    <div class="topo-in">
+      <div class="marca"><span class="marca-logo"><img id="logo-topo" alt="Trivia"></span><span class="marca-nome">Avaliação de Desempenho</span></div>
+      <button class="usuario" id="btn-usuario" type="button"><span class="avatar" id="topo-avatar"></span><span class="usuario-nome" id="topo-nome"></span></button>
+    </div>
+    <div class="faixas" aria-hidden="true"><i></i><i></i><i></i></div>
+  </header>
+
+  <div class="corpo">
+    <nav class="menu-lateral" id="menu-lateral" aria-label="Menu"></nav>
+    <main class="conteudo" id="conteudo" tabindex="-1"></main>
+  </div>
+
+  <nav class="menu-inferior" id="menu-inferior" aria-label="Menu"></nav>
+</div>
+
+<!-- Painel deslizante (formulários) -->
+<div class="painel-fundo" id="painel-fundo" hidden>
+  <section class="painel" id="painel" role="dialog" aria-modal="true" aria-labelledby="painel-titulo">
+    <header class="painel-topo">
+      <button class="painel-fechar" type="button" data-fechar aria-label="Fechar">✕</button>
+      <h2 id="painel-titulo"></h2>
+    </header>
+    <div class="painel-corpo" id="painel-corpo"></div>
+    <footer class="painel-rodape" id="painel-rodape"></footer>
+  </section>
+</div>
+
+<!-- Confirmação -->
+<div class="dialogo-fundo" id="dialogo" hidden>
+  <div class="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="dialogo-titulo">
+    <h3 id="dialogo-titulo"></h3>
+    <p id="dialogo-texto"></p>
+    <div class="dialogo-botoes"><button class="btn btn-sec" id="dialogo-nao" type="button">Cancelar</button><button class="btn btn-pri" id="dialogo-sim" type="button">Confirmar</button></div>
+  </div>
+</div>
+
+<!-- Menu de ações (⋯) -->
+<div class="acoes-fundo" id="acoes" hidden><div class="acoes" id="acoes-lista" role="menu"></div></div>
+
+<div class="avisos" id="avisos" aria-live="polite"></div>
+
+<!-- Modelo de impressão (PDF) -->
+<div id="impressao" class="impressao"></div>
+
+<script>/*__JS__*/</script>
+</body>
+</html>
