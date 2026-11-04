@@ -348,7 +348,7 @@ function lido(av) { return lerLS('ge_lido_' + av.id) === '1'; }
 function marcarLido(av) { gravarLS('ge_lido_' + av.id, '1'); }
 
 // ════════════ Página: Avaliação ════════════
-const AV = { periodo: null, filtro: 'todos', base: '', busca: '' };
+const AV = { periodo: null, filtro: 'todos', base: '', turno: '', busca: '' };
 
 function cicloAvaliacao(tecs, avs, per) {
   return tecs.map(t => {
@@ -368,11 +368,11 @@ async function avaliacaoAdmin(c) {
   const abertos = periodosAbertos();
 
   const desenhar = () => {
-    const ciclo = cicloAvaliacao(tecs, avs, AV.periodo);
+    // base e turno definem o grupo; os contadores e o progresso mostram só esse grupo
+    const ciclo = cicloAvaliacao(tecs, avs, AV.periodo).filter(x => (!AV.base || x.t.base === AV.base) && (!AV.turno || x.t.turno === AV.turno));
     const conta = { todos: ciclo.length, avaliar: 0, feedback: 0, concluido: 0, semauto: 0 };
     ciclo.forEach(x => { if (x.status === 'avaliar') conta.avaliar++; else if (x.status === 'concluido') conta.concluido++; else conta.feedback++; if (!x.auto) conta.semauto++; });
     let lista = ciclo;
-    if (AV.base) lista = lista.filter(x => x.t.base === AV.base);
     if (AV.busca) { const q = AV.busca.toLowerCase(); lista = lista.filter(x => x.t.nome.toLowerCase().includes(q)); }
     if (AV.filtro === 'avaliar') lista = lista.filter(x => x.status === 'avaliar');
     if (AV.filtro === 'feedback') lista = lista.filter(x => x.status === 'feedback' || x.status === 'liberar');
@@ -398,6 +398,7 @@ async function avaliacaoAdmin(c) {
         <button class="filtro" type="button" aria-pressed="${!AV.base}" ${on(() => { AV.base = ''; desenhar(); })}>Todas as bases</button>
         ${Object.keys(BASES).map(b => `<button class="filtro" type="button" aria-pressed="${AV.base === b}" ${on(() => { AV.base = b; desenhar(); })}>${esc(baseNome(b))}</button>`).join('')}
       </div>
+      <div class="filtros" role="group" aria-label="Turno">${filtrosTurno(AV, desenhar)}</div>
       ${!editavel ? `<div class="alerta azul">${ic('cal')}<div>Este semestre está encerrado: dá para consultar, dar feedback e gerar PDF, mas não criar novas avaliações.</div></div>` : ''}
       <div class="lista duas">${lista.length ? lista.map(x => cartaoCiclo(x, editavel, avs)).join('') : `<div class="vazio"><b>Ninguém aqui</b>Nenhum técnico neste filtro.</div>`}</div>`;
 
@@ -638,17 +639,24 @@ function gerarPDF(avs, tec, per) {
 }
 
 // ════════════ Página: Equipe (técnicos) ════════════
-const EQ = { base: '', busca: '', filtro: '' };
+const EQ = { base: '', turno: '', busca: '', filtro: '' };
+
+// Botões Dia / Noite (o mesmo componente na Avaliação e na Equipe)
+function filtrosTurno(est, redesenhar) {
+  return [['', 'Dia e noite'], ['Diurno', '☀ Dia'], ['Noturno', '☾ Noite']]
+    .map(([v, t]) => `<button class="filtro" type="button" aria-pressed="${est.turno === v}" ${on(() => { est.turno = v; redesenhar(); })}>${t}</button>`).join('');
+}
 PAGINAS.equipe = async c => {
   const tecs = await srv('tecnicos');
   const desenhar = () => {
     let l = tecs;
     if (EQ.base) l = l.filter(t => t.base === EQ.base);
+    if (EQ.turno) l = l.filter(t => t.turno === EQ.turno);
     if (EQ.busca) { const q = EQ.busca.toLowerCase(); l = l.filter(t => t.nome.toLowerCase().includes(q) || (t.email || '').includes(q)); }
     if (EQ.filtro === 'semacesso') l = l.filter(t => !t.email);
     const semAc = tecs.filter(t => !t.email).length;
     c.innerHTML = `
-      <div class="pag-topo"><div><h1>Equipe</h1><p>${plural(tecs.length, 'técnico', 'técnicos')} cadastrados</p></div>
+      <div class="pag-topo"><div><h1>Equipe</h1><p>${l.length === tecs.length ? plural(tecs.length, 'técnico', 'técnicos') + ' cadastrados' : `${l.length} de ${tecs.length} técnicos`}</p></div>
         <button class="btn btn-pri" ${on(() => formTecnico(null))}>${ic('mais1')}Técnico</button></div>
       <label class="busca">${ic('busca')}<input id="eq-busca" type="search" placeholder="Buscar por nome ou e-mail" value="${esc(EQ.busca)}" aria-label="Buscar"></label>
       <div class="filtros">
@@ -656,6 +664,7 @@ PAGINAS.equipe = async c => {
         ${Object.keys(BASES).map(b => `<button class="filtro" type="button" aria-pressed="${EQ.base === b}" ${on(() => { EQ.base = EQ.base === b ? '' : b; desenhar(); })}>${esc(baseNome(b))}</button>`).join('')}
         ${semAc ? `<button class="filtro" type="button" aria-pressed="${EQ.filtro === 'semacesso'}" ${on(() => { EQ.filtro = EQ.filtro === 'semacesso' ? '' : 'semacesso'; desenhar(); })}>Sem e-mail<span class="n">${semAc}</span></button>` : ''}
       </div>
+      <div class="filtros" role="group" aria-label="Turno">${filtrosTurno(EQ, desenhar)}</div>
       ${l.length ? `<div class="lista">${l.map(t => {
         return `<article class="item ${baseCls(t.base)}" style="cursor:pointer" ${on(() => formTecnico(t))}>
           <div class="item-topo"><span class="avatar">${esc(iniciais(t.nome))}</span>
