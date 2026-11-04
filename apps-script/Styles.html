@@ -258,7 +258,10 @@ table.tabela{width:100%;border-collapse:collapse;font-size:14px}
 .escala button:hover{border-color:var(--navy)}
 .escala button[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
 .crit-rodape{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:12.5px;min-height:18px}
-.crit-rodape .sig{color:var(--navy);font-weight:650}
+.crit-rodape .sig{color:var(--navy);flex:1;min-width:0}
+.crit-rodape .sig b{font-weight:700}
+.crit-rodape .sig .ex{display:block;color:var(--ink2);font-size:12.5px;margin-top:2px}
+.crit-rodape .ref{white-space:nowrap}
 .crit-rodape .ref{color:var(--muted)}
 .grupo-crit{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin:18px 0 8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
 .g-tec{color:var(--azul)}.g-comp{color:var(--b3)}.g-org{color:#b34a0e}
