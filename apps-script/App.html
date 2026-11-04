@@ -659,7 +659,7 @@ PAGINAS.equipe = async c => {
       ${l.length ? `<div class="lista">${l.map(t => {
         return `<article class="item ${baseCls(t.base)}" style="cursor:pointer" ${on(() => formTecnico(t))}>
           <div class="item-topo"><span class="avatar">${esc(iniciais(t.nome))}</span>
-            <div class="item-tit"><b>${esc(t.nome)}</b><div class="sub">${tagBase(t.base)}<span>Escala ${esc(t.escala)} · ${esc(t.turno)}</span>
+            <div class="item-tit"><b>${esc(t.nome)}</b><div class="sub">${tagBase(t.base)}${t.escala && t.turno ? `<span>Escala ${esc(t.escala)} · ${esc(t.turno)}</span>` : '<span class="etiqueta et-amb">Completar cadastro</span>'}
               ${!t.email ? '<span class="etiqueta et-amb">Sem e-mail: não entra no app</span>' : ''}</div></div>
             <span class="t-seta" style="color:var(--muted);font-size:22px">›</span></div></article>`;
       }).join('')}</div>` : `<div class="vazio"><b>Nenhum técnico encontrado</b></div>`}`;
